@@ -1,0 +1,14 @@
+[project]
+name = "devtrace"
+version = "0.1"
+dependencies = ["click"]
+
+[project.scripts]
+devtrace = "devtrace.cli:app"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["devtrace"]
