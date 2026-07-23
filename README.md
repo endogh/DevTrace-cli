@@ -60,24 +60,25 @@ echo '. ~/.devtrace/devtrace-hook.ps1' >> $PROFILE
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Workflow
 
 ```bash
-# Start a session
+# 1. Start session
 devtrace start fix-login-bug
 
-# Log activity
+# 2. Work (errors auto-capture from shell hook)
+$ npm start
+Error: Cannot find module 'xyz'
+[DEVTRACE] Logged error: Cannot find module 'xyz'
+
+# 3. Manual logging (optional)
 devtrace log -s context "Project: Next.js 14"
-devtrace log -s problem "Login fails silently"
+devtrace log -s solution "Added null check"
 
-# Log error (auto-capture from clipboard)
-devtrace error
-
-# Stop session
-devtrace stop
-
-# Export for blog
-devtrace export fix-login-bug
+# 4. Done - stop + auto export
+devtrace done
+[+] Stopped session: fix-login-bug
+[+] Exported to: .devtrace/fix-login-bug-blog.md
 ```
 
 ---
@@ -88,7 +89,8 @@ devtrace export fix-login-bug
 |---------|-------------|
 | `devtrace start <name>` | Start new session |
 | `devtrace retro <name>` | Start retroactive session |
-| `devtrace stop` | Stop current session |
+| `devtrace done` | Stop + auto export to blog |
+| `devtrace stop` | Stop session only |
 | `devtrace switch <name>` | Switch active session |
 | `devtrace log -s <section> <msg>` | Log to section |
 | `devtrace error [msg]` | Log error (clipboard/manual) |

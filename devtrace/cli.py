@@ -229,6 +229,33 @@ def stop():
 
 
 # =========================
+# DONE (STOP + EXPORT)
+# =========================
+
+@app.command()
+def done():
+    """Stop session and auto-export to blog-ready markdown"""
+    session = get_active_session()
+
+    if not session:
+        click.echo("[!] No active session")
+        return
+
+    session_file = get_session_file(session)
+    content = session_file.read_text(encoding="utf-8")
+    content = content.replace("[WIP]", "[DONE]").replace("Status: In Progress", "Status: Done")
+    session_file.write_text(content, encoding="utf-8")
+
+    clear_session()
+    click.echo(f"[+] Stopped session: {session}")
+
+    output = export_blog(session, content)
+    output_file = DEVTRACE_DIR / f"{session}-blog.md"
+    output_file.write_text(output, encoding="utf-8")
+    click.echo(f"[+] Exported to: {output_file}")
+
+
+# =========================
 # SWITCH SESSION
 # =========================
 
