@@ -1,19 +1,51 @@
-# DevTrace CLI
+# 🧠 DevTrace
 
-Track your debugging sessions like a pro. Project-local storage, automatic error capture, and blog-ready exports.
+> Stop losing solutions to bugs you've already solved.
 
-## Features
+Capture your debugging journey and turn it into a reusable knowledge base.
 
-- **Project-local storage** - Sessions stored in `.devtrace/` per project
-- **Automatic error capture** - Shell hook captures errors from terminal
-- **Retroactive logging** - Start session after debugging
-- **Session switching** - Auto-detect by directory, manual switch available
-- **Blog export** - Convert sessions to blog-ready markdown
-- **Git-friendly** - Commit your logs with your code
+DevTrace is a CLI tool that helps developers track their coding sessions, log problems in real-time, and convert raw debugging activity into structured, reusable knowledge.
 
-## Installation
+---
+
+## 🤔 Why DevTrace?
+
+Every developer has experienced this:
+
+- You solve a complex bug today
+- Tomorrow, you forget how you fixed it
+- Next week, you solve the *same problem again*
+
+DevTrace fixes that.
+
+Instead of writing blogs *after* you're done (and forgetting details), DevTrace lets you:
+
+- Log your thinking **while solving the problem**
+- Capture real debugging steps
+- Build a personal knowledge base automatically
+
+---
+
+## ✨ Features
+
+- 🧾 **Session-based tracking** - Organize by project and problem
+- 🧠 **Real-time logging** - Capture thoughts as you debug
+- 📄 **Markdown output** - Readable, version-controllable
+- ⚡ **Lightweight & fast** - No database, just files
+- 🔄 **Auto error capture** - Shell hook catches errors automatically
+- 📝 **Retroactive start** - Forgot to start? No problem
+- 🌐 **Multi-device sync** - Via git
+- 📢 **Blog export** - Convert to blog-ready markdown
+
+---
+
+## 📦 Installation
 
 ```bash
+# Clone the repo
+git clone https://github.com/endogh/DevTrace-cli.git
+cd DevTrace-cli
+
 # Install the package
 pip install -e .
 
@@ -26,91 +58,48 @@ echo '. ~/.devtrace/devtrace-hook.ps1' >> $PROFILE
 . $PROFILE
 ```
 
-## Usage
+---
 
-### Basic Commands
+## 🚀 Quick Start
 
 ```bash
-# Start a new session
+# Start a session
 devtrace start fix-login-bug
 
 # Log activity
-devtrace log "Found null pointer in auth.py"
-devtrace log -s investigation "Checked error logs"
-devtrace log -s solution "Added null check"
+devtrace log -s context "Project: Next.js 14"
+devtrace log -s problem "Login fails silently"
 
-# Log error (from clipboard)
+# Log error (auto-capture from clipboard)
 devtrace error
-
-# Log error (manual)
-devtrace error "TypeError: Cannot read property 'map'" --context "auth.py:42"
 
 # Stop session
 devtrace stop
-```
 
-### Session Management
-
-```bash
-# List all sessions
-devtrace list
-
-# Show recent sessions
-devtrace recent
-
-# Switch session
-devtrace switch fix-oauth
-
-# View session content
-devtrace view fix-login-bug
-```
-
-### Retroactive Start
-
-```bash
-# When you forgot to start session
-devtrace retro fix-login-bug
-
-# It will prompt for what you did:
-> Apa yang sudah kamu kerjakan sebelumnya?
-> - Cek error logs
-> - Found null pointer in auth.py
-> (Enter dua kali untuk selesai)
-```
-
-### Export for Blog
-
-```bash
-# Export as blog-ready markdown
+# Export for blog
 devtrace export fix-login-bug
-
-# Export raw format
-devtrace export fix-login-bug --format raw
 ```
 
-## Shell Hook Features
+---
 
-The shell hook provides:
+## 📋 Commands
 
-1. **Auto-detect project** - Shows active session when you cd to a project
-2. **Error capture** - Automatically logs errors from failed commands
-3. **Session switching** - cd to different project auto-switches session
+| Command | Description |
+|---------|-------------|
+| `devtrace start <name>` | Start new session |
+| `devtrace retro <name>` | Start retroactive session |
+| `devtrace stop` | Stop current session |
+| `devtrace switch <name>` | Switch active session |
+| `devtrace log -s <section> <msg>` | Log to section |
+| `devtrace error [msg]` | Log error (clipboard/manual) |
+| `devtrace list` | List all sessions |
+| `devtrace recent` | Show recent sessions |
+| `devtrace view <name>` | View session content |
+| `devtrace export <name>` | Export as blog markdown |
 
-### Bash/Zsh
+---
 
-```bash
-# Add to ~/.bashrc or ~/.zshrc
-source ~/.devtrace/devtrace-hook.sh
-```
-
-### PowerShell
-
-```powershell
-# Add to $PROFILE
-. ~/.devtrace/devtrace-hook.ps1
-```
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 <project>/
@@ -118,27 +107,14 @@ source ~/.devtrace/devtrace-hook.sh
 │   ├── current.txt           # Active session pointer
 │   ├── fix-login-bug.md      # Session 1
 │   └── fix-oauth.md          # Session 2
-├── .gitignore                # Don't ignore .devtrace/
+├── .gitignore
 ├── src/
 └── ...
 ```
 
-## Git Workflow
+---
 
-```bash
-# Commit logs with your code
-git add .devtrace/
-git commit -m "log: fix login bug"
-
-# Push to sync across devices
-git push
-
-# On another device
-git pull
-# All logs sync automatically!
-```
-
-## Session Format
+## 📝 Session Format
 
 Each session is a markdown file with structured sections:
 
@@ -184,32 +160,25 @@ Status: In Progress
 - NextAuth.js doesn't validate token structure by default
 ```
 
-## Commands Reference
+---
 
-| Command | Description |
-|---------|-------------|
-| `devtrace start <name>` | Start new session |
-| `devtrace retro <name>` | Start retroactive session |
-| `devtrace stop` | Stop current session |
-| `devtrace switch <name>` | Switch active session |
-| `devtrace log -s <section> <msg>` | Log to section |
-| `devtrace error [msg]` | Log error (clipboard/manual) |
-| `devtrace list` | List all sessions |
-| `devtrace recent` | Show recent sessions |
-| `devtrace view <name>` | View session content |
-| `devtrace export <name>` | Export as blog markdown |
+## 🔄 Git Workflow
 
-## Sections
+```bash
+# Commit logs with your code
+git add .devtrace/
+git commit -m "log: fix login bug"
 
-- `errors` - Error messages and stack traces
-- `context` - Project context, tech stack
-- `problem` - Problem description
-- `investigation` - Debugging steps
-- `root-cause` - Root cause analysis
-- `solution` - Solution implemented
-- `insight` - Lessons learned
-- `gotchas` - Gotchas and warnings
+# Push to sync across devices
+git push
 
-## License
+# On another device
+git pull
+# All logs sync automatically!
+```
+
+---
+
+## 📄 License
 
 MIT
