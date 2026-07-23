@@ -41,22 +41,43 @@ Instead of writing blogs *after* you're done (and forgetting details), DevTrace 
 
 ## 📦 Installation
 
+### One-liner (Linux/macOS)
+
 ```bash
-# Clone the repo
+curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash
+```
+
+### PowerShell (Windows)
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1"
+```
+
+### Manual Install
+
+```bash
+# Clone and install
 git clone https://github.com/endogh/DevTrace-cli.git
 cd DevTrace-cli
-
-# Install the package
 pip install -e .
 
-# Install shell hook (bash/zsh)
+# Setup shell hook (bash/zsh)
+mkdir -p ~/.devtrace
+cp devtrace-hook.sh ~/.devtrace/
 echo 'source ~/.devtrace/devtrace-hook.sh' >> ~/.bashrc
 source ~/.bashrc
-
-# Or for PowerShell
-echo '. ~/.devtrace/devtrace-hook.ps1' >> $PROFILE
-. $PROFILE
 ```
+
+### Supported Platforms
+
+| OS | Shell | Method |
+|----|-------|--------|
+| Arch/CachyOS | bash/zsh | `curl \| bash` |
+| Ubuntu/Debian | bash/zsh | `curl \| bash` |
+| Fedora | bash/zsh | `curl \| bash` |
+| macOS | bash/zsh | `curl \| bash` |
+| Windows | PowerShell | `install.ps1` |
+| Any | Fish | Auto-detect |
 
 ---
 
