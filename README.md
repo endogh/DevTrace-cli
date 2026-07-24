@@ -41,27 +41,41 @@ Instead of writing blogs *after* you're done (and forgetting details), DevTrace 
 
 ## 📦 Installation
 
-### One-liner (Linux/macOS)
+### Default (venv) — Recommended
 
+Installs in an isolated virtual environment at `~/.devtrace/venv/`.
+
+**Linux/macOS:**
 ```bash
 curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash
 ```
 
-### PowerShell (Windows)
-
+**Windows (PowerShell):**
 ```powershell
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1"
+```
+
+### Global Install
+
+Installs system-wide. On Arch/CachyOS this uses `pipx`, on other distros uses `pip`.
+
+**Linux/macOS:**
+```bash
+curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash -s -- -g
+```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1" -Global
 ```
 
 ### Manual Install
 
 ```bash
-# Clone and install
 git clone https://github.com/endogh/DevTrace-cli.git
 cd DevTrace-cli
 pip install -e .
 
-# Setup shell hook (bash/zsh)
 mkdir -p ~/.devtrace
 cp devtrace-hook.sh ~/.devtrace/
 echo 'source ~/.devtrace/devtrace-hook.sh' >> ~/.bashrc
@@ -98,8 +112,25 @@ devtrace log -s solution "Added null check"
 
 # 4. Done - stop + auto export
 devtrace done
-[+] Stopped session: fix-login-bug
-[+] Exported to: .devtrace/fix-login-bug-blog.md
+```
+
+**Active session banner:**
+```
+╭───────── DEVTRACE ─────────╮
+│ Active: fix-login-bug       │
+│ devtrace stop to end session│
+╰─────────────────────────────╯
+```
+
+**List sessions:**
+```
+              Sessions              
+┏━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┓
+┃ Name         ┃ Status ┃ Modified ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━┩
+│ fix-login    │ ACTIVE │ 07-23    │
+│ fix-oauth    │        │ 07-22    │
+└──────────────┴━━━━━━━━┴━━━━━━━━━━┘
 ```
 
 ---

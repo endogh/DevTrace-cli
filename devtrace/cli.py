@@ -1,27 +1,24 @@
 import click
 import re
-import os
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+
+import colorama
+from slugify import slugify as slugify_fn
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.markdown import Markdown as RichMarkdown
+
 from devtrace.template import generate_template, generate_retro_template, export_blog, SECTIONS, SECTION_HEADERS
+
+colorama.just_fix_windows_console()
+console = Console()
 
 DEVTRACE_DIR = Path.cwd() / ".devtrace"
 SESSION_FILE = DEVTRACE_DIR / "current.txt"
-
-BANNER = """
-\x1b[36m+==================================================+
-|  [DEVTRACE] Active: {: <29}|
-|  devtrace stop to end session                     |
-+==================================================+\x1b[0m"""
-
-BANNER_MULTI = """
-\x1b[36m+==================================================+
-|  [DEVTRACE] Active: {: <29}|
-|  {: <47}|
-|  devtrace stop to end session                     |
-+==================================================+\x1b[0m"""
 
 
 def ensure_dir():
@@ -47,8 +44,8 @@ def get_session_file(name: str):
     return DEVTRACE_DIR / f"{name}.md"
 
 
-def slugify(name: str):
-    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+def make_slug(name: str):
+    return slugify_fn(name)
 
 
 def list_sessions():
@@ -120,10 +117,12 @@ def show_banner():
     if session:
         sessions = list_sessions()
         count = len(sessions)
+        title = Text("DEVTRACE", style="bold cyan")
         if count > 1:
-            click.echo(BANNER_MULTI.format(session, f"{count} sessions available"))
+            body = f"[bold cyan]Active:[/bold cyan] {session}\n[dim]{count} sessions available[/dim]\n[dim]devtrace stop to end session[/dim]"
         else:
-            click.echo(BANNER.format(session))
+            body = f"[bold cyan]Active:[/bold cyan] {session}\n[dim]devtrace stop to end session[/dim]"
+        console.print(Panel(body, title=title, border_style="cyan"))
 
 
 @click.group(invoke_without_command=True)
@@ -247,12 +246,12 @@ def done():
     session_file.write_text(content, encoding="utf-8")
 
     clear_session()
-    click.echo(f"[+] Stopped session: {session}")
+    console.print(f"[bold green][+][/] Stopped session: {session}")
 
     output = export_blog(session, content)
     output_file = DEVTRACE_DIR / f"{session}-blog.md"
     output_file.write_text(output, encoding="utf-8")
-    click.echo(f"[+] Exported to: {output_file}")
+    console.print(f"[bold green][+][/] Exported to: {output_file}")
 
 
 # =========================
@@ -403,16 +402,25 @@ def show():
 @app.command("list")
 def list_sessions_cmd():
     """List all sessions"""
+    from rich.table import Table
+
     sessions = list_sessions()
 
     if not sessions:
         click.echo("[!] No sessions found")
         return
 
+    table = Table(title="Sessions", show_header=True, header_style="bold cyan")
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("Modified")
+
     for name, is_active, mtime in sessions:
-        marker = " [ACTIVE]" if is_active else ""
+        status = "[bold green]ACTIVE[/bold green]" if is_active else ""
         date_str = mtime.strftime("%Y-%m-%d %H:%M")
-        click.echo(f"  - {name}{marker} ({date_str})")
+        table.add_row(name, status, date_str)
+
+    console.print(table)
 
 
 # =========================
@@ -423,6 +431,8 @@ def list_sessions_cmd():
 @click.option("--count", "-n", default=5, help="Number of recent sessions")
 def recent(count):
     """Show recent sessions"""
+    from rich.table import Table
+
     sessions = list_sessions()
 
     if not sessions:
@@ -431,11 +441,17 @@ def recent(count):
 
     sessions.sort(key=lambda x: x[2], reverse=True)
 
-    click.echo(f"[+] Recent {min(count, len(sessions))} sessions:")
+    table = Table(title=f"Recent {min(count, len(sessions))} sessions", show_header=True, header_style="bold cyan")
+    table.add_column("Name")
+    table.add_column("Status")
+    table.add_column("Modified")
+
     for name, is_active, mtime in sessions[:count]:
-        marker = " [ACTIVE]" if is_active else ""
+        status = "[bold green]ACTIVE[/bold green]" if is_active else ""
         date_str = mtime.strftime("%Y-%m-%d %H:%M")
-        click.echo(f"  - {name}{marker} ({date_str})")
+        table.add_row(name, status, date_str)
+
+    console.print(table)
 
 
 # =========================
@@ -453,7 +469,7 @@ def view(name):
         return
 
     content = session_file.read_text(encoding="utf-8")
-    click.echo(content)
+    console.print(RichMarkdown(content))
 
 
 # =========================
@@ -481,7 +497,7 @@ def export(name, format):
     output_file = DEVTRACE_DIR / f"{name}-export.md"
     output_file.write_text(output, encoding="utf-8")
 
-    click.echo(f"[+] Exported to: {output_file}")
+    console.print(f"[bold green][+][/] Exported to: {output_file}")
 
 
 # =========================

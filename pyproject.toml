@@ -1,7 +1,14 @@
 [project]
 name = "devtrace"
 version = "0.1"
-dependencies = ["click"]
+dependencies = [
+    "click",
+    "colorama",
+    "rich",
+    "python-slugify",
+    "Pygments",
+    "markdown-it-py",
+]
 
 [project.scripts]
 devtrace = "devtrace.cli:app"
