@@ -8,6 +8,7 @@ dependencies = [
     "python-slugify",
     "Pygments",
     "markdown-it-py",
+    "requests",
 ]
 
 [project.scripts]

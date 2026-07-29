@@ -92,7 +92,10 @@ def export_blog(title, content):
     blog_content = f"""---
 title: "{title}"
 date: {now}
+type: codelog
 tags: [debugging]
+commits: 
+hours: 
 status: done
 ---
 

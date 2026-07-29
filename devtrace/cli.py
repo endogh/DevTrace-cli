@@ -233,7 +233,7 @@ def stop():
 
 @app.command()
 def done():
-    """Stop session and auto-export to blog-ready markdown"""
+    """Stop session and convert to blog-ready markdown (1 file)"""
     session = get_active_session()
 
     if not session:
@@ -243,15 +243,13 @@ def done():
     session_file = get_session_file(session)
     content = session_file.read_text(encoding="utf-8")
     content = content.replace("[WIP]", "[DONE]").replace("Status: In Progress", "Status: Done")
-    session_file.write_text(content, encoding="utf-8")
+
+    blog = export_blog(session, content)
+    session_file.write_text(blog, encoding="utf-8")
 
     clear_session()
-    console.print(f"[bold green][+][/] Stopped session: {session}")
-
-    output = export_blog(session, content)
-    output_file = DEVTRACE_DIR / f"{session}-blog.md"
-    output_file.write_text(output, encoding="utf-8")
-    console.print(f"[bold green][+][/] Exported to: {output_file}")
+    console.print(f"[bold green][+][/] Stopped + blog-ready: {session}")
+    console.print(f"[dim]File: {session_file}[/dim]")
 
 
 # =========================
@@ -473,31 +471,145 @@ def view(name):
 
 
 # =========================
-# EXPORT SESSION
+# UPLOAD SESSION
+# =========================
+
+def list_blog_files():
+    ensure_dir()
+    files = []
+    for f in sorted(DEVTRACE_DIR.glob("*.md")):
+        if f.stem in ("current",):
+            continue
+        files.append(f)
+    return files
+
+
+def pick_blog_files():
+    files = list_blog_files()
+    if not files:
+        click.echo("[!] No files found in .devtrace/")
+        return None
+
+    from rich.table import Table
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("#", style="dim")
+    table.add_column("File")
+    table.add_column("Modified", style="dim")
+    for i, f in enumerate(files, 1):
+        mtime = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
+        table.add_row(str(i), f.name, mtime)
+    console.print(table)
+
+    inp = click.prompt("Select files to upload (e.g. 1,2,4,6)", default="").strip()
+    if not inp:
+        click.echo("[!] No selection")
+        return None
+
+    selected = []
+    for part in inp.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            try:
+                a, b = part.split("-")
+                for n in range(int(a), int(b) + 1):
+                    if 1 <= n <= len(files):
+                        selected.append(files[n - 1])
+            except ValueError:
+                continue
+        else:
+            try:
+                n = int(part)
+                if 1 <= n <= len(files):
+                    selected.append(files[n - 1])
+            except ValueError:
+                continue
+
+    if not selected:
+        click.echo("[!] No valid selection")
+        return None
+
+    return selected
+
+
+@app.command()
+@click.argument("files", nargs=-1)
+@click.option("--session", "-s", "session_name", help="Upload a specific session by name")
+@click.option("--all", "-a", "all_sessions", is_flag=True, help="Upload all sessions")
+def upload(files, session_name, all_sessions):
+    """Upload session(s) to API endpoint (configured in .env as TOKEN and API)"""
+    from devtrace.uploader import get_config, upload_files
+
+    token, api_url = get_config()
+    if not token:
+        click.echo("[!] TOKEN not found in .env")
+        return
+    if not api_url:
+        click.echo("[!] API URL not found in .env (set API or API_URL)")
+        return
+
+    targets = []
+
+    if files:
+        for f in files:
+            p = Path(f)
+            if p.exists():
+                targets.append(p)
+            else:
+                candidate = DEVTRACE_DIR / f
+                if candidate.exists():
+                    targets.append(candidate)
+                else:
+                    click.echo(f"[!] File not found: {f}")
+                    return
+    elif all_sessions:
+        targets = list_blog_files()
+        if not targets:
+            click.echo("[!] No files found in .devtrace/")
+            return
+    elif session_name:
+        sf = get_session_file(session_name)
+        if not sf.exists():
+            click.echo(f"[!] Session '{session_name}' not found")
+            return
+        targets = [sf]
+    else:
+        picked = pick_blog_files()
+        if picked is None:
+            return
+        targets = picked
+
+    try:
+        resp = upload_files(targets, token, api_url)
+        console.print(f"[bold green][+][/] Uploaded {len(targets)} file(s) to {api_url}")
+        console.print(f"[dim]Status: {resp.status_code}[/dim]")
+    except Exception:
+        pass
+
+
+# =========================
+# CLEAR BLOG FILES
 # =========================
 
 @app.command()
-@click.argument("name")
-@click.option("--format", "-f", type=click.Choice(["blog", "raw"]), default="blog", help="Export format")
-def export(name, format):
-    """Export session as blog-ready markdown"""
-    session_file = get_session_file(name)
-
-    if not session_file.exists():
-        click.echo(f"[!] Session '{name}' not found")
+def clear():
+    """Remove all blog/session files from .devtrace/"""
+    files = list_blog_files()
+    if not files:
+        click.echo("[!] No files to clear")
         return
 
-    content = session_file.read_text(encoding="utf-8")
+    click.echo("Files to remove:")
+    for f in files:
+        click.echo(f"  - {f.name}")
 
-    if format == "blog":
-        output = export_blog(name, content)
-    else:
-        output = content
-
-    output_file = DEVTRACE_DIR / f"{name}-export.md"
-    output_file.write_text(output, encoding="utf-8")
-
-    console.print(f"[bold green][+][/] Exported to: {output_file}")
+    if click.confirm("Remove these files?"):
+        count = 0
+        for f in files:
+            f.unlink()
+            count += 1
+        console.print(f"[bold green][+][/] Removed {count} file(s)")
 
 
 # =========================
