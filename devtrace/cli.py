@@ -4,6 +4,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from . import __version__
 
 import colorama
 from slugify import slugify as slugify_fn
@@ -126,6 +127,7 @@ def show_banner():
 
 
 @click.group(invoke_without_command=True)
+@click.version_option(version=__version__, prog_name="devtrace CLI")
 @click.pass_context
 def app(ctx):
     """DevTrace CLI - Track your dev activity like a pro"""
@@ -146,7 +148,7 @@ def after_command(result):
 @app.command()
 @click.argument("name")
 def start(name):
-    """Start new dev session"""
+    """Start  new  session"""
     session_file = get_session_file(name)
 
     if session_file.exists():
@@ -538,7 +540,7 @@ def pick_blog_files():
 @click.option("--session", "-s", "session_name", help="Upload a specific session by name")
 @click.option("--all", "-a", "all_sessions", is_flag=True, help="Upload all sessions")
 def upload(files, session_name, all_sessions):
-    """Upload session(s) to API endpoint (configured in .env as TOKEN and API)"""
+    """Upload File(s) to API endpoint (configured in .env as TOKEN and API)"""
     from devtrace.uploader import get_config, upload_files
 
     token, api_url = get_config()
@@ -610,6 +612,7 @@ def clear():
             f.unlink()
             count += 1
         console.print(f"[bold green][+][/] Removed {count} file(s)")
+
 
 
 # =========================

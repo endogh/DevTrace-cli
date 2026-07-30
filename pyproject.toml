@@ -1,6 +1,6 @@
 [project]
 name = "devtrace"
-version = "0.1"
+version = "0.1.1"
 dependencies = [
     "click",
     "colorama",
