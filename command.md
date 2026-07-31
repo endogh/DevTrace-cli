@@ -126,13 +126,15 @@ DevTrace CLI version: 0.1.1
 ## Update Existing Installation
 
 ```bash
-pip install -e . --upgrade
+devtrace update
 ```
 
-Or for global install:
+This upgrades the DevTrace CLI package to the latest version. It auto-detects how DevTrace was installed (venv, pipx, or pip) and runs the correct upgrade command.
+
+To also refresh the shell hooks in `~/.devtrace/`:
 
 ```bash
-pip install -e . --upgrade --force-reinstall
+devtrace upgrade
 ```
 
 ---

@@ -1,5 +1,8 @@
 import click
+import importlib.metadata
+import os
 import re
+import site
 import subprocess
 import sys
 from datetime import datetime
@@ -613,6 +616,102 @@ def clear():
             count += 1
         console.print(f"[bold green][+][/] Removed {count} file(s)")
 
+
+
+# =========================
+# UPDATE / UPGRADE
+# =========================
+
+GITHUB_REPO = "git+https://github.com/endogh/DevTrace-cli.git"
+HOOK_BASE_URL = "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/"
+
+
+def detect_install_mode():
+    venv_dir = Path.home() / ".devtrace" / "venv"
+    executable = str(Path(sys.executable).resolve())
+    prefix = str(Path(sys.prefix).resolve())
+
+    if venv_dir in Path(executable).parents or str(venv_dir) == prefix:
+        return "venv"
+    if "pipx" in executable.lower() or "pipx" in prefix.lower():
+        return "pipx"
+    if site.getusersitepackages() in sys.path:
+        return "user"
+    return "system"
+
+
+def installed_version():
+    try:
+        return importlib.metadata.version("devtrace")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def upgrade_package():
+    mode = detect_install_mode()
+    before = installed_version()
+    console.print(f"[dim]Current version:[/dim] {before}")
+    console.print(f"[dim]Install mode:[/dim] {mode}")
+
+    if mode == "pipx":
+        cmd = ["pipx", "upgrade", "devtrace"]
+    else:
+        cmd = [sys.executable, "-m", "pip", "install", "--upgrade"]
+        if mode == "user":
+            cmd.append("--user")
+        cmd.append(GITHUB_REPO)
+
+    console.print(f"[dim]Running:[/dim] {' '.join(cmd)}")
+    try:
+        proc = subprocess.run(cmd)
+    except FileNotFoundError:
+        console.print(f"[bold red][!][/] Command not found: {cmd[0]}")
+        return False
+
+    if proc.returncode != 0:
+        console.print("[bold red][!][/] Update failed. Check the pip output above.")
+        return False
+
+    after = installed_version()
+    console.print(f"[bold green][+][/] Updated from {before} to {after}")
+    return True
+
+
+def update_hooks():
+    devtrace_home = Path.home() / ".devtrace"
+    devtrace_home.mkdir(parents=True, exist_ok=True)
+
+    if sys.platform == "win32":
+        hook_name = "devtrace-hook.ps1"
+    else:
+        shell = (os.environ.get("SHELL") or "").rsplit("/", 1)[-1]
+        hook_name = "devtrace-hook.fish" if shell == "fish" else "devtrace-hook.sh"
+
+    url = HOOK_BASE_URL + hook_name
+    target = devtrace_home / hook_name
+    console.print(f"[dim]Downloading {hook_name}...[/dim]")
+
+    try:
+        import requests
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        target.write_text(resp.text, encoding="utf-8")
+        console.print(f"[bold green][+][/] Hook updated: {target}")
+    except Exception as e:
+        console.print(f"[bold red][!][/] Could not update hook: {e}")
+
+
+@app.command()
+def update():
+    """Update DevTrace CLI package to the latest version"""
+    upgrade_package()
+
+
+@app.command()
+def upgrade():
+    """Update DevTrace CLI package and refresh shell hooks"""
+    if upgrade_package():
+        update_hooks()
 
 
 # =========================

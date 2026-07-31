@@ -95,6 +95,20 @@ source ~/.bashrc
 
 ---
 
+## 🔄 Updating
+
+```bash
+# Upgrade the package only
+devtrace update
+
+# Upgrade package + refresh shell hooks in ~/.devtrace/
+devtrace upgrade
+```
+
+Both auto-detect how DevTrace was installed (venv, pipx, or pip) and run the correct upgrade command.
+
+---
+
 ## 🚀 Workflow
 
 ```bash
@@ -150,6 +164,8 @@ devtrace done
 | `devtrace recent` | Show recent sessions |
 | `devtrace view <name>` | View session content |
 | `devtrace export <name>` | Export as blog markdown |
+| `devtrace update` | Update package to latest version |
+| `devtrace upgrade` | Update package + refresh shell hooks |
 
 ---
 
