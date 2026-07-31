@@ -298,27 +298,8 @@ def switch(name):
 # LOG ERROR
 # =========================
 
-@app.command()
-@click.argument("message", required=False)
-@click.option("--context", "-c", help="Additional context (file:line, etc)")
-def error(message, context):
-    """Log an error (reads from clipboard if no message provided)"""
-    session = get_active_session()
-
-    if not session:
-        click.echo("[!] No active session. Start one first:")
-        click.echo("    devtrace start <name>")
-        click.echo("    devtrace retro <name>")
-        return
-
-    if not message:
-        click.echo("[*] Reading from clipboard...")
-        message = get_clipboard()
-        if not message:
-            click.echo("[!] Could not read clipboard or clipboard is empty")
-            click.echo("    Usage: devtrace error \"error message\"")
-            return
-
+def log_error(session, message, context=None):
+    """Log an error entry into a session's Errors section."""
     session_file = get_session_file(session)
     now = datetime.now().strftime("%H:%M:%S")
 
@@ -346,6 +327,95 @@ def error(message, context):
         with open(session_file, "a", encoding="utf-8") as f:
             f.write(f"\n## Errors\n\n{error_entry}\n")
         click.echo(f"[+] Created Errors section and logged: {message[:50]}...")
+
+
+def get_session_type(session):
+    """Return the 'Type:' value from a session file (default 'debug')."""
+    session_file = get_session_file(session)
+    if not session_file.exists():
+        return "debug"
+    m = re.search(r"^Type:\s*(\S+)", session_file.read_text(encoding="utf-8"), re.MULTILINE)
+    return m.group(1).lower() if m else "debug"
+
+
+def route_to_debug(active, message, context=None):
+    """Send an error into a dedicated debug session (debug-<active>)."""
+    if active.startswith("debug-"):
+        log_error(active, message, context)
+        return active
+
+    debug_name = f"debug-{active}"
+    debug_file = get_session_file(debug_name)
+    if not debug_file.exists():
+        debug_file.write_text(generate_template(debug_name, "debug"), encoding="utf-8")
+        append_to_section(debug_file, "context", f"Debug session untuk fitur: {active}")
+        click.echo(f"[+] Created debug session: {debug_name}")
+
+    set_active_session(debug_name)
+    log_error(debug_name, message, context)
+
+    now = datetime.now().strftime("%H:%M:%S")
+    ref = f"- [{now}] Debug session dibuat: {debug_name} ({message[:50]}...)"
+    feature_file = get_session_file(active)
+    ref_content = insert_after_header(
+        feature_file.read_text(encoding="utf-8"), "## Work Log", ref
+    )
+    if ref_content is None:
+        with open(feature_file, "a", encoding="utf-8") as f:
+            f.write(f"\n## Work Log\n\n{ref}\n")
+    else:
+        feature_file.write_text(ref_content, encoding="utf-8")
+
+    return debug_name
+
+
+@app.command()
+@click.argument("message", required=False)
+@click.option("--context", "-c", help="Additional context (file:line, etc)")
+def error(message, context):
+    """Log an error (reads from clipboard if no message provided).
+
+    Routes into a dedicated debug session (debug-<session>) when the active
+    session is a feature session.
+    """
+    session = get_active_session()
+
+    if not session:
+        click.echo("[!] No active session. Start one first:")
+        click.echo("    devtrace start <name>")
+        click.echo("    devtrace retro <name>")
+        return
+
+    if not message:
+        click.echo("[*] Reading from clipboard...")
+        message = get_clipboard()
+        if not message:
+            click.echo("[!] Could not read clipboard or clipboard is empty")
+            click.echo("    Usage: devtrace error \"error message\"")
+            return
+
+    if get_session_type(session) == "feature":
+        click.echo(f"[>] Session '{session}' is a feature session - routing to a debug session")
+        route_to_debug(session, message, context)
+        return
+
+    log_error(session, message, context)
+
+
+@app.command()
+@click.argument("message")
+@click.option("--context", "-c", help="Additional context (file:line, etc)")
+def debug(message, context):
+    """Log an error into a dedicated debug session (debug-<active>)."""
+    session = get_active_session()
+
+    if not session:
+        click.echo("[!] No active session. Start one first:")
+        click.echo("    devtrace start <name>")
+        click.echo("    devtrace retro <name>")
+        return
+
+    route_to_debug(session, message, context)
 
 
 # =========================
