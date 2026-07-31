@@ -87,9 +87,17 @@ Type: {type}
 """
 
 
+def normalize_date(value):
+    """Extract YYYY-MM-DD from a date string, tolerating optional time parts."""
+    if not value:
+        return None
+    match = re.match(r"^(\d{4}-\d{2}-\d{2})", value.strip())
+    return match.group(1) if match else None
+
+
 def export_blog(title, content, date=None, tags=None):
     """Convert session log to blog-ready markdown with frontmatter."""
-    now = date or datetime.now().strftime("%Y-%m-%d")
+    now = normalize_date(date) or datetime.now().strftime("%Y-%m-%d")
     tags_str = tags or "debugging"
 
     blog_content = f"""---
@@ -230,7 +238,7 @@ def generate_blog(data, extra_tags=None):
     timeline, no filled sections) so the caller can skip it.
     """
     title = data.get("title") or "Untitled session"
-    date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+    date = normalize_date(data.get("date")) or datetime.now().strftime("%Y-%m-%d")
     errors = data.get("errors", [])
     sections = data.get("sections", {})
     timeline = data.get("timeline", [])

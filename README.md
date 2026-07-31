@@ -124,7 +124,7 @@ DevTrace uses `MAJOR.MINOR.PATCH`:
 | `MINOR` | Jumlah fitur/command |
 | `PATCH` | Minor update (reset ke 0 setiap fitur baru) |
 
-Current: `0.18.0` (beta, 18 commands).
+Current: `0.18.1` (beta, 18 commands).
 
 ---
 
