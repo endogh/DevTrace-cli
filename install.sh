@@ -198,7 +198,7 @@ if [ "$GLOBAL" = true ]; then
         *)
             PIP_CMD="pip3"
             command -v pip3 &> /dev/null || PIP_CMD="pip"
-            $PIP_CMD install --user git+https://github.com/endogh/DevTrace-cli.git 2>/dev/null || {
+            $PIP_CMD install --upgrade --user git+https://github.com/endogh/DevTrace-cli.git 2>/dev/null || {
                 echo "pip install failed (externally-managed environment?)."
                 echo "Try running without -g to install in a venv instead,"
                 echo "or install pipx and use: pipx install git+https://github.com/endogh/DevTrace-cli.git"
@@ -214,8 +214,13 @@ else
     echo "Creating virtual environment at $VENV_DIR..."
     $PYTHON_CMD -m venv "$VENV_DIR"
 
+    VENV_PIP="$VENV_DIR/bin/pip"
+    if [ ! -x "$VENV_PIP" ]; then
+        VENV_PIP="$VENV_DIR/Scripts/pip.exe"
+    fi
+
     echo "Installing devtrace in venv..."
-    "$VENV_DIR/bin/pip" install git+https://github.com/endogh/DevTrace-cli.git
+    "$VENV_PIP" install --upgrade git+https://github.com/endogh/DevTrace-cli.git
 fi
 
 # =========================

@@ -118,7 +118,7 @@ devtrace --version
 Expected output:
 
 ```
-DevTrace CLI version: 0.1.1
+DevTrace CLI version: 0.16.0
 ```
 
 ---

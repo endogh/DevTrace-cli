@@ -653,24 +653,30 @@ def upgrade_package():
     console.print(f"[dim]Current version:[/dim] {before}")
     console.print(f"[dim]Install mode:[/dim] {mode}")
 
+    def run_cmd(cmd):
+        console.print(f"[dim]Running:[/dim] {' '.join(cmd)}")
+        try:
+            proc = subprocess.run(cmd)
+        except FileNotFoundError:
+            console.print(f"[bold red][!][/] Command not found: {cmd[0]}")
+            return False
+        if proc.returncode != 0:
+            console.print("[bold red][!][/] Update failed. Check the pip output above.")
+            return False
+        return True
+
     if mode == "pipx":
-        cmd = ["pipx", "upgrade", "devtrace"]
+        if not run_cmd(["pipx", "upgrade", "devtrace"]):
+            return False
     else:
-        cmd = [sys.executable, "-m", "pip", "install", "--upgrade"]
+        base = [sys.executable, "-m", "pip", "install"]
         if mode == "user":
-            cmd.append("--user")
-        cmd.append(GITHUB_REPO)
+            base.append("--user")
 
-    console.print(f"[dim]Running:[/dim] {' '.join(cmd)}")
-    try:
-        proc = subprocess.run(cmd)
-    except FileNotFoundError:
-        console.print(f"[bold red][!][/] Command not found: {cmd[0]}")
-        return False
-
-    if proc.returncode != 0:
-        console.print("[bold red][!][/] Update failed. Check the pip output above.")
-        return False
+        if not run_cmd(base + [GITHUB_REPO]):
+            return False
+        if not run_cmd(base + ["--force-reinstall", "--no-deps", GITHUB_REPO]):
+            return False
 
     after = installed_version()
     console.print(f"[bold green][+][/] Updated from {before} to {after}")

@@ -107,6 +107,18 @@ devtrace upgrade
 
 Both auto-detect how DevTrace was installed (venv, pipx, or pip) and run the correct upgrade command.
 
+## 🔢 Versioning
+
+DevTrace uses `MAJOR.MINOR.PATCH`:
+
+| Part | Meaning |
+|------|---------|
+| `MAJOR` | `0` = beta, `1` = stable (1.0 belum dirilis) |
+| `MINOR` | Jumlah fitur/command |
+| `PATCH` | Minor update (reset ke 0 setiap fitur baru) |
+
+Current: `0.16.0` (beta, 16 commands).
+
 ---
 
 ## 🚀 Workflow

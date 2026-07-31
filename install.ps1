@@ -53,7 +53,7 @@ Write-Host "[3/5] Installing devtrace..." -ForegroundColor Yellow
 $devtraceHome = "$env:USERPROFILE\.devtrace"
 
 if ($Global) {
-    pip install git+https://github.com/endogh/DevTrace-cli.git
+    pip install --upgrade git+https://github.com/endogh/DevTrace-cli.git
 } else {
     $venvDir = "$devtraceHome\venv"
 
@@ -61,7 +61,7 @@ if ($Global) {
     python -m venv "$venvDir"
 
     Write-Host "Installing devtrace in venv..."
-    & "$venvDir\Scripts\pip.exe" install git+https://github.com/endogh/DevTrace-cli.git
+    & "$venvDir\Scripts\pip.exe" install --upgrade git+https://github.com/endogh/DevTrace-cli.git
 
     # Add venv Scripts to user PATH
     $venvBin = "$venvDir\Scripts"
