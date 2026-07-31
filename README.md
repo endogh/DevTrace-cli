@@ -43,16 +43,22 @@ Instead of writing blogs *after* you're done (and forgetting details), DevTrace 
 
 ### Default (venv) — Recommended
 
-Installs in an isolated virtual environment at `~/.devtrace/venv/`.
+Installs devtrace **into the venv yang sedang aktif** (atau `.venv/` di proyek), supaya tidak bentrok dengan PATH. Kalau tidak ada venv, fallback ke venv terpisah di `~/.devtrace/venv/`.
+
+Sebelum install, script menampilkan **ringkasan apa saja yang akan di-install** lalu meminta konfirmasi. Non-interaktif? Tambahkan `-y`.
 
 **Linux/macOS:**
 ```bash
 curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash
+# atau tanpa konfirmasi:
+curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash -s -- -y
 ```
 
 **Windows (PowerShell):**
 ```powershell
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1"
+# atau tanpa konfirmasi:
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1" -Yes
 ```
 
 ### Global Install
@@ -74,6 +80,7 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/ma
 ```bash
 git clone https://github.com/endogh/DevTrace-cli.git
 cd DevTrace-cli
+source .venv/bin/activate   # aktifkan venv proyek (Windows: .venv\Scripts\activate)
 pip install -e .
 
 mkdir -p ~/.devtrace

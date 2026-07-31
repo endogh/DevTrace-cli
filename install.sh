@@ -3,8 +3,9 @@
 # Works on: Linux (Arch/Ubuntu/Fedora), macOS, Windows (Git Bash/WSL)
 #
 # Usage:
-#   install.sh          # Install in venv (default)
-#   install.sh -g       # Install globally (pipx on Arch, pip elsewhere)
+#   install.sh            # Install into active/project venv (fallback: ~/.devtrace/venv)
+#   install.sh -y         # Skip confirmation prompt
+#   install.sh -g         # Install globally (pipx on Arch, pip elsewhere)
 
 set -e
 
@@ -13,6 +14,7 @@ set -e
 # =========================
 
 GLOBAL=false
+ASSUME_YES=false
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -20,14 +22,20 @@ while [ $# -gt 0 ]; do
             GLOBAL=true
             shift
             ;;
+        -y|--yes)
+            ASSUME_YES=true
+            shift
+            ;;
         -h|--help)
             echo "Usage: install.sh [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  -g, --global    Install globally (uses pipx on Arch, pip elsewhere)"
+            echo "  -y, --yes       Skip confirmation prompt"
             echo "  -h, --help      Show this help"
             echo ""
-            echo "Default: Install in a virtual environment at ~/.devtrace/venv/"
+            echo "Default: Install into the active venv, then project .venv,"
+            echo "         else fallback to ~/.devtrace/venv/"
             exit 0
             ;;
         *)
@@ -38,15 +46,14 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ "$GLOBAL" = true ]; then
-    echo "DevTrace CLI Installer (global)"
-else
-    echo "DevTrace CLI Installer (venv)"
-fi
+echo "DevTrace CLI Installer"
 echo "========================="
 echo ""
 
-# Detect OS
+# =========================
+# DETECT SYSTEM
+# =========================
+
 detect_os() {
     case "$(uname -s)" in
         Linux*)     echo "linux";;
@@ -56,7 +63,6 @@ detect_os() {
     esac
 }
 
-# Detect Linux distro
 detect_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -76,11 +82,168 @@ fi
 echo "Detected OS: $OS ($DISTRO)"
 
 # =========================
-# INSTALL DEPENDENCIES
+# DETECT DEPENDENCIES (no install yet)
+# =========================
+
+NEED_PYTHON=false
+if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
+    NEED_PYTHON=true
+else
+    echo "Python found: $(python3 --version 2>/dev/null || python --version)"
+fi
+
+PYTHON_CMD="python3"
+command -v python3 &> /dev/null || PYTHON_CMD="python"
+
+NEED_PIPX=false
+NEED_PIP=false
+if [ "$GLOBAL" = true ]; then
+    case $DISTRO in
+        arch|cachyos|manjaro)
+            if ! command -v pipx &> /dev/null; then
+                NEED_PIPX=true
+            fi
+            ;;
+        *)
+            if ! command -v pip3 &> /dev/null && ! command -v pip &> /dev/null; then
+                NEED_PIP=true
+            fi
+            ;;
+    esac
+fi
+
+NEED_XCLIP=false
+if [ "$OS" = "linux" ]; then
+    if ! command -v xclip &> /dev/null && ! command -v xsel &> /dev/null; then
+        NEED_XCLIP=true
+    fi
+fi
+
+# =========================
+# DETECT SHELL CONFIG
+# =========================
+
+SHELL_NAME=$(basename "${SHELL:-bash}")
+case $SHELL_NAME in
+    zsh)
+        SHELL_CONFIG="$HOME/.zshrc"
+        HOOK_FILE="devtrace-hook.sh"
+        ;;
+    bash)
+        if [ "$OS" = "macos" ]; then
+            SHELL_CONFIG="$HOME/.bash_profile"
+        else
+            SHELL_CONFIG="$HOME/.bashrc"
+        fi
+        HOOK_FILE="devtrace-hook.sh"
+        ;;
+    fish)
+        SHELL_CONFIG="$HOME/.config/fish/config.fish"
+        HOOK_FILE="devtrace-hook.fish"
+        ;;
+    *)
+        SHELL_CONFIG="$HOME/.bashrc"
+        HOOK_FILE="devtrace-hook.sh"
+        ;;
+esac
+
+# =========================
+# DETERMINE TARGET
+# =========================
+
+venv_pip() {
+    if [ -x "$1/bin/pip" ]; then
+        echo "$1/bin/pip"
+    elif [ -x "$1/Scripts/pip.exe" ]; then
+        echo "$1/Scripts/pip.exe"
+    else
+        echo ""
+    fi
+}
+
+TARGET_MODE="global"
+TARGET_DIR=""
+TARGET_PIP=""
+TARGET_LABEL=""
+
+if [ "$GLOBAL" = true ]; then
+    TARGET_MODE="global"
+    TARGET_LABEL="global (pipx/pip sistem)"
+else
+    if [ -n "$VIRTUAL_ENV" ] && [ -n "$(venv_pip "$VIRTUAL_ENV")" ]; then
+        TARGET_MODE="venv_active"
+        TARGET_DIR="$VIRTUAL_ENV"
+        TARGET_PIP="$(venv_pip "$VIRTUAL_ENV")"
+        TARGET_LABEL="venv aktif: $VIRTUAL_ENV"
+    elif [ -n "$(venv_pip "$PWD/.venv")" ]; then
+        TARGET_MODE="venv_project"
+        TARGET_DIR="$PWD/.venv"
+        TARGET_PIP="$(venv_pip "$PWD/.venv")"
+        TARGET_LABEL="venv proyek: $PWD/.venv"
+    else
+        TARGET_MODE="venv_fallback"
+        TARGET_DIR="$HOME/.devtrace/venv"
+        TARGET_PIP=""
+        TARGET_LABEL="fallback: ~/.devtrace/venv (akan dibuat)"
+    fi
+fi
+
+# =========================
+# SUMMARY + CONFIRM
 # =========================
 
 echo ""
-echo "[1/5] Checking dependencies..."
+echo "Rencana instalasi:"
+echo "  Target install  : $TARGET_LABEL"
+echo "  Yang di-install :"
+echo "    - devtrace (git+https://github.com/endogh/DevTrace-cli.git)"
+echo "    - dependensi: click, rich, colorama, python-slugify,"
+echo "                  Pygments, markdown-it-py, requests"
+if [ "$NEED_PYTHON" = true ]; then
+    echo "    - python3 + pip (paket sistem: $DISTRO)"
+fi
+if [ "$NEED_PIPX" = true ]; then
+    echo "    - pipx (paket sistem)"
+fi
+if [ "$NEED_PIP" = true ]; then
+    echo "    - pip (paket sistem)"
+fi
+if [ "$NEED_XCLIP" = true ]; then
+    echo "    - xclip (paket sistem, untuk clipboard)"
+fi
+if [ "$TARGET_MODE" = "venv_fallback" ]; then
+    echo "    - venv BARU di $TARGET_DIR"
+fi
+echo "  Shell hook      : $HOOK_FILE -> ~/.devtrace/ + edit $SHELL_CONFIG"
+echo ""
+
+confirm() {
+    [ "$ASSUME_YES" = true ] && return 0
+    local answer=""
+    if [ -e /dev/tty ]; then
+        read -r -p "[?] Lanjutkan instalasi? [y/N] " answer 2>/dev/null < /dev/tty || answer=""
+    elif [ -t 0 ]; then
+        read -r -p "[?] Lanjutkan instalasi? [y/N] " answer 2>/dev/null || answer=""
+    else
+        echo "[!] Tidak ada TTY. Jalankan dengan -y untuk skip konfirmasi." >&2
+        return 1
+    fi
+    case "$answer" in
+        y|Y|yes|YES) return 0 ;;
+        *) echo "[!] Instalasi dibatalkan."; return 1 ;;
+    esac
+}
+
+if ! confirm; then
+    exit 1
+fi
+
+# =========================
+# [1/5] INSTALL SYSTEM DEPENDENCIES (jika perlu)
+# =========================
+
+echo ""
+echo "[1/5] Installing sistem dependencies..."
 
 install_python() {
     case $OS in
@@ -119,34 +282,23 @@ install_python() {
     esac
 }
 
-# Check Python
-if ! command -v python3 &> /dev/null && ! command -v python &> /dev/null; then
+if [ "$NEED_PYTHON" = true ]; then
     install_python
-else
-    echo "Python found: $(python3 --version 2>/dev/null || python --version)"
 fi
 
-# Determine python command
-PYTHON_CMD="python3"
-command -v python3 &> /dev/null || PYTHON_CMD="python"
-
-# For global mode, ensure pipx is available (Arch) or pip (others)
 if [ "$GLOBAL" = true ]; then
     case $DISTRO in
         arch|cachyos|manjaro)
-            # Arch recommends pipx for global CLI tools
-            if ! command -v pipx &> /dev/null; then
+            if [ "$NEED_PIPX" = true ]; then
                 echo "Installing pipx..."
                 sudo pacman -S --noconfirm python-pipx
             fi
-            # Ensure pipx PATH is in profile
             if ! grep -q "pipx" "$HOME/.bashrc" 2>/dev/null && ! grep -q "pipx" "$HOME/.zshrc" 2>/dev/null; then
                 eval "$PYTHON_CMD -m pipx ensurepath" 2>/dev/null || true
             fi
             ;;
         *)
-            # Other distros: check pip
-            if ! command -v pip3 &> /dev/null && ! command -v pip &> /dev/null; then
+            if [ "$NEED_PIP" = true ]; then
                 echo "Installing pip..."
                 case $DISTRO in
                     ubuntu|debian)
@@ -164,67 +316,73 @@ if [ "$GLOBAL" = true ]; then
     esac
 fi
 
-# Check xclip for Linux (for clipboard support)
-if [ "$OS" = "linux" ]; then
-    if ! command -v xclip &> /dev/null && ! command -v xsel &> /dev/null; then
-        echo "Installing xclip for clipboard support..."
-        case $DISTRO in
-            arch|cachyos|manjaro)
-                sudo pacman -S --noconfirm xclip
-                ;;
-            ubuntu|debian)
-                sudo apt install -y xclip
-                ;;
-            fedora|rhel|centos)
-                sudo dnf install -y xclip
-                ;;
-        esac
-    fi
+if [ "$NEED_XCLIP" = true ]; then
+    echo "Installing xclip for clipboard support..."
+    case $DISTRO in
+        arch|cachyos|manjaro)
+            sudo pacman -S --noconfirm xclip
+            ;;
+        ubuntu|debian)
+            sudo apt install -y xclip
+            ;;
+        fedora|rhel|centos)
+            sudo dnf install -y xclip
+            ;;
+    esac
 fi
 
 # =========================
-# INSTALL DEVTRACE
+# [2/5] INSTALL DEVTRACE
 # =========================
 
 echo ""
 echo "[2/5] Installing devtrace..."
 
-if [ "$GLOBAL" = true ]; then
-    case $DISTRO in
-        arch|cachyos|manjaro)
-            echo "Installing via pipx..."
-            pipx install git+https://github.com/endogh/DevTrace-cli.git
-            ;;
-        *)
-            PIP_CMD="pip3"
-            command -v pip3 &> /dev/null || PIP_CMD="pip"
-            $PIP_CMD install --upgrade --user git+https://github.com/endogh/DevTrace-cli.git 2>/dev/null || {
-                echo "pip install failed (externally-managed environment?)."
-                echo "Try running without -g to install in a venv instead,"
-                echo "or install pipx and use: pipx install git+https://github.com/endogh/DevTrace-cli.git"
-                exit 1
-            }
-            ;;
-    esac
-else
-    DEVTRACE_HOME="$HOME/.devtrace"
-    VENV_DIR="$DEVTRACE_HOME/venv"
-    mkdir -p "$DEVTRACE_HOME"
+REPO_URL="git+https://github.com/endogh/DevTrace-cli.git"
 
-    echo "Creating virtual environment at $VENV_DIR..."
-    $PYTHON_CMD -m venv "$VENV_DIR"
-
-    VENV_PIP="$VENV_DIR/bin/pip"
-    if [ ! -x "$VENV_PIP" ]; then
-        VENV_PIP="$VENV_DIR/Scripts/pip.exe"
-    fi
-
-    echo "Installing devtrace in venv..."
-    "$VENV_PIP" install --upgrade git+https://github.com/endogh/DevTrace-cli.git
-fi
+case $TARGET_MODE in
+    global)
+        case $DISTRO in
+            arch|cachyos|manjaro)
+                if pipx list 2>/dev/null | grep -q "devtrace"; then
+                    echo "devtrace sudah terpasang via pipx, meng-upgrade..."
+                    pipx install --force --pip-args=--force-reinstall "$REPO_URL"
+                else
+                    echo "Installing via pipx..."
+                    pipx install "$REPO_URL"
+                fi
+                ;;
+            *)
+                PIP_CMD="pip3"
+                command -v pip3 &> /dev/null || PIP_CMD="pip"
+                $PIP_CMD install --upgrade --user "$REPO_URL" 2>/dev/null || {
+                    echo "pip install gagal (kemungkinan: environment externally-managed / PEP 668)."
+                    echo ""
+                    echo "Solusi (pilih salah satu):"
+                    echo "  1. Install via pipx:     pipx install --force git+https://github.com/endogh/DevTrace-cli.git"
+                    echo "  2. Pakai venv:           jalankan install.sh tanpa -g di dalam venv proyek"
+                    echo "  3. Paksa pip:            pip install --upgrade --user --break-system-packages git+https://github.com/endogh/DevTrace-cli.git"
+                    exit 1
+                }
+                ;;
+        esac
+        ;;
+    venv_active|venv_project)
+        echo "Installing into $TARGET_DIR ..."
+        "$TARGET_PIP" install --upgrade "$REPO_URL"
+        ;;
+    venv_fallback)
+        mkdir -p "$HOME/.devtrace"
+        echo "Creating virtual environment at $TARGET_DIR..."
+        $PYTHON_CMD -m venv "$TARGET_DIR"
+        TARGET_PIP="$(venv_pip "$TARGET_DIR")"
+        echo "Installing devtrace in venv..."
+        "$TARGET_PIP" install --upgrade "$REPO_URL"
+        ;;
+esac
 
 # =========================
-# CREATE DIRECTORIES
+# [3/5] SETUP DIRECTORIES
 # =========================
 
 echo ""
@@ -232,38 +390,12 @@ echo "[3/5] Setting up directories..."
 mkdir -p ~/.devtrace
 
 # =========================
-# INSTALL SHELL HOOK
+# [4/5] INSTALL SHELL HOOK
 # =========================
 
 echo ""
 echo "[4/5] Installing shell hook..."
 
-# Detect shell
-SHELL_NAME=$(basename "$SHELL")
-case $SHELL_NAME in
-    zsh)
-        SHELL_CONFIG="$HOME/.zshrc"
-        HOOK_FILE="devtrace-hook.sh"
-        ;;
-    bash)
-        if [ "$OS" = "macos" ]; then
-            SHELL_CONFIG="$HOME/.bash_profile"
-        else
-            SHELL_CONFIG="$HOME/.bashrc"
-        fi
-        HOOK_FILE="devtrace-hook.sh"
-        ;;
-    fish)
-        SHELL_CONFIG="$HOME/.config/fish/config.fish"
-        HOOK_FILE="devtrace-hook.fish"
-        ;;
-    *)
-        SHELL_CONFIG="$HOME/.bashrc"
-        HOOK_FILE="devtrace-hook.sh"
-        ;;
-esac
-
-# Download hook
 HOOK_URL="https://raw.githubusercontent.com/endogh/DevTrace-cli/main/$HOOK_FILE"
 curl -sSL "$HOOK_URL" -o ~/.devtrace/$HOOK_FILE 2>/dev/null || {
     echo "Could not download hook from GitHub"
@@ -271,13 +403,12 @@ curl -sSL "$HOOK_URL" -o ~/.devtrace/$HOOK_FILE 2>/dev/null || {
 }
 
 # =========================
-# CONFIGURE SHELL
+# [5/5] CONFIGURE SHELL
 # =========================
 
 echo ""
 echo "[5/5] Configuring shell..."
 
-# Check if already configured
 if ! grep -q "devtrace-hook" "$SHELL_CONFIG" 2>/dev/null; then
     echo "" >> "$SHELL_CONFIG"
     echo "# DevTrace CLI" >> "$SHELL_CONFIG"
@@ -293,8 +424,8 @@ else
     echo "Shell hook already configured in $SHELL_CONFIG"
 fi
 
-# For venv mode, add venv bin to PATH
-if [ "$GLOBAL" = false ]; then
+# Tambah PATH fallback (~/.devtrace/venv/bin) hanya untuk mode fallback
+if [ "$TARGET_MODE" = "venv_fallback" ]; then
     VENV_PATH_ENTRY="$HOME/.devtrace/venv/bin"
 
     if [ "$SHELL_NAME" = "fish" ]; then
@@ -317,11 +448,18 @@ fi
 echo ""
 echo "Installation complete!"
 echo ""
-if [ "$GLOBAL" = true ]; then
-    echo "Installed globally (pipx on Arch, pip elsewhere)."
-else
-    echo "Installed in venv at ~/.devtrace/venv/"
-fi
+case $TARGET_MODE in
+    global)
+        echo "Installed globally (pipx on Arch, pip elsewhere)."
+        ;;
+    venv_active|venv_project)
+        echo "Installed into venv: $TARGET_DIR"
+        echo "Pastikan venv ini aktif saat memakai devtrace."
+        ;;
+    venv_fallback)
+        echo "Installed in venv at ~/.devtrace/venv/"
+        ;;
+esac
 echo ""
 echo "Usage:"
 echo "  cd ~/projects/your-app"
@@ -332,3 +470,31 @@ echo "Reload your shell:"
 echo "  source $SHELL_CONFIG"
 echo ""
 echo "Or restart your terminal."
+
+# =========================
+# VERIFY PATH
+# =========================
+
+echo ""
+DEVTRACE_BIN="$(command -v devtrace 2>/dev/null || true)"
+if [ -n "$DEVTRACE_BIN" ]; then
+    case $TARGET_MODE in
+        venv_active|venv_project)
+            EXPECTED="$TARGET_DIR/bin/devtrace"
+            if [ -x "$TARGET_DIR/Scripts/devtrace.exe" ]; then
+                EXPECTED="$TARGET_DIR/Scripts/devtrace.exe"
+            fi
+            if [ "$DEVTRACE_BIN" != "$EXPECTED" ]; then
+                echo "[!] Warning: 'devtrace' di PATH saat ini = $DEVTRACE_BIN"
+                echo "    Bukan dari $TARGET_DIR."
+                echo "    Aktifkan venv ini (source $TARGET_DIR/bin/activate) atau periksa urutan PATH."
+            fi
+            ;;
+        venv_fallback)
+            if [ "$DEVTRACE_BIN" != "$HOME/.devtrace/venv/bin/devtrace" ]; then
+                echo "[!] Warning: 'devtrace' di PATH saat ini = $DEVTRACE_BIN"
+                echo "    Bukan ~/.devtrace/venv/bin/devtrace. Periksa urutan PATH."
+            fi
+            ;;
+    esac
+fi

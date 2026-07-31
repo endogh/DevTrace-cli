@@ -5,6 +5,7 @@ import re
 import site
 import subprocess
 import sys
+import sysconfig
 from datetime import datetime
 from pathlib import Path
 from . import __version__
@@ -627,14 +628,13 @@ HOOK_BASE_URL = "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/"
 
 
 def detect_install_mode():
-    venv_dir = Path.home() / ".devtrace" / "venv"
-    executable = str(Path(sys.executable).resolve())
-    prefix = str(Path(sys.prefix).resolve())
+    executable = str(Path(sys.executable).resolve()).lower()
+    prefix = str(Path(sys.prefix).resolve()).lower()
 
-    if venv_dir in Path(executable).parents or str(venv_dir) == prefix:
-        return "venv"
-    if "pipx" in executable.lower() or "pipx" in prefix.lower():
+    if "pipx" in executable or "pipx" in prefix:
         return "pipx"
+    if sys.prefix != sys.base_prefix:
+        return "venv"
     if site.getusersitepackages() in sys.path:
         return "user"
     return "system"
@@ -653,29 +653,64 @@ def upgrade_package():
     console.print(f"[dim]Current version:[/dim] {before}")
     console.print(f"[dim]Install mode:[/dim] {mode}")
 
-    def run_cmd(cmd):
+    def run_cmd(cmd, hint=None):
         console.print(f"[dim]Running:[/dim] {' '.join(cmd)}")
         try:
-            proc = subprocess.run(cmd)
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         except FileNotFoundError:
             console.print(f"[bold red][!][/] Command not found: {cmd[0]}")
             return False
+        output = proc.stdout or ""
+        if output.strip():
+            print(output, end="")
         if proc.returncode != 0:
-            console.print("[bold red][!][/] Update failed. Check the pip output above.")
+            console.print("[bold red][!][/] Update failed. Check the output above.")
+            if hint:
+                for line in hint:
+                    console.print(line)
             return False
         return True
 
     if mode == "pipx":
-        if not run_cmd(["pipx", "upgrade", "devtrace"]):
+        cmd = ["pipx", "install", "--force", "--pip-args=--force-reinstall", GITHUB_REPO]
+        hint = [
+            "    Saran untuk mode pipx:",
+            "      - pipx upgrade devtrace  (kalau versi sudah lebih baru)",
+            "      - atau pipx uninstall devtrace lalu pipx install git+https://github.com/endogh/DevTrace-cli.git",
+        ]
+        if not run_cmd(cmd, hint):
             return False
     else:
         base = [sys.executable, "-m", "pip", "install"]
         if mode == "user":
             base.append("--user")
 
-        if not run_cmd(base + [GITHUB_REPO]):
+        hint = None
+        if mode == "system":
+            site_dir = sysconfig.get_paths()["purelib"]
+            is_root = hasattr(os, "geteuid") and os.geteuid() == 0
+            if not os.access(site_dir, os.W_OK) and not is_root:
+                console.print("[bold yellow][!][/] Python sistem tidak writable oleh user biasa.")
+                console.print("    Saran:")
+                console.print(f"      - sudo {sys.executable} -m pip install --upgrade {GITHUB_REPO}")
+                console.print("      - atau via pipx:  pipx install --force git+https://github.com/endogh/DevTrace-cli.git")
+                return False
+            hint = [
+                "    Saran untuk mode system:",
+                f"      - sudo {sys.executable} -m pip install --upgrade {GITHUB_REPO}",
+                "      - atau via pipx:  pipx install --force git+https://github.com/endogh/DevTrace-cli.git",
+                "      - atau pakai venv proyek",
+            ]
+        elif mode == "user":
+            hint = [
+                "    Saran untuk mode user (PEP 668 / externally-managed?):",
+                "      - pip install --upgrade --user --break-system-packages git+https://github.com/endogh/DevTrace-cli.git",
+                "      - atau via pipx:  pipx install --force git+https://github.com/endogh/DevTrace-cli.git",
+            ]
+
+        if not run_cmd(base + [GITHUB_REPO], hint):
             return False
-        if not run_cmd(base + ["--force-reinstall", "--no-deps", GITHUB_REPO]):
+        if not run_cmd(base + ["--force-reinstall", "--no-deps", GITHUB_REPO], hint):
             return False
 
     after = installed_version()

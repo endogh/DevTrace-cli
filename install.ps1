@@ -2,93 +2,159 @@
 # For Windows (PowerShell) or WSL
 #
 # Usage:
-#   .\install.ps1           # Install in venv (default)
-#   .\install.ps1 -Global   # Install globally via pip
+#   .\install.ps1            # Install into active/project venv (fallback: ~/.devtrace/venv)
+#   .\install.ps1 -Yes       # Skip confirmation prompt
+#   .\install.ps1 -Global    # Install globally via pip
 
 param(
-    [switch]$Global
+    [switch]$Global,
+    [switch]$Yes
 )
 
-if ($Global) {
-    Write-Host "DevTrace CLI Installer (global)" -ForegroundColor Cyan
-} else {
-    Write-Host "DevTrace CLI Installer (venv)" -ForegroundColor Cyan
-}
+Write-Host "DevTrace CLI Installer" -ForegroundColor Cyan
 Write-Host "========================="
 Write-Host ""
+
+# =========================
+# DETECT TARGET
+# =========================
+
+$devtraceHome = "$env:USERPROFILE\.devtrace"
+
+function Get-VenvPip {
+    param([string]$VenvDir)
+    if (Test-Path "$VenvDir\Scripts\pip.exe") { return "$VenvDir\Scripts\pip.exe" }
+    if (Test-Path "$VenvDir\bin\pip") { return "$VenvDir\bin\pip" }
+    return ""
+}
+
+$TargetMode = ""
+$TargetDir = ""
+$TargetPip = ""
+
+if ($Global) {
+    $TargetMode = "global"
+} elseif ($env:VIRTUAL_ENV -and (Get-VenvPip $env:VIRTUAL_ENV)) {
+    $TargetMode = "venv_active"
+    $TargetDir = $env:VIRTUAL_ENV
+    $TargetPip = Get-VenvPip $env:VIRTUAL_ENV
+} elseif (Get-VenvPip "$PWD\.venv") {
+    $TargetMode = "venv_project"
+    $TargetDir = "$PWD\.venv"
+    $TargetPip = Get-VenvPip "$PWD\.venv"
+} else {
+    $TargetMode = "venv_fallback"
+    $TargetDir = "$devtraceHome\venv"
+}
 
 # =========================
 # CHECK PYTHON
 # =========================
 
-Write-Host "[1/5] Checking Python..." -ForegroundColor Yellow
 try {
     $pythonVersion = python --version 2>&1
-    Write-Host "Python found: $pythonVersion"
+    Write-Host "Python found: $pythonVersion" -ForegroundColor Yellow
 } catch {
     Write-Host "Python not found. Please install from https://www.python.org/downloads/" -ForegroundColor Red
     Write-Host "Make sure to check 'Add Python to PATH' during installation"
     exit 1
 }
 
-# For global mode, check pip
-if ($Global) {
-    Write-Host "[2/5] Checking pip..." -ForegroundColor Yellow
+# =========================
+# SUMMARY + CONFIRM
+# =========================
+
+$TargetLabel = switch ($TargetMode) {
+    "global"        { "global (pip)" }
+    "venv_active"   { "venv aktif: $TargetDir" }
+    "venv_project"  { "venv proyek: $TargetDir" }
+    "venv_fallback" { "fallback: $devtraceHome\venv (akan dibuat)" }
+}
+
+Write-Host ""
+Write-Host "Rencana instalasi:"
+Write-Host "  Target install  : $TargetLabel"
+Write-Host "  Yang di-install :"
+Write-Host "    - devtrace (git+https://github.com/endogh/DevTrace-cli.git)"
+Write-Host "    - dependensi: click, rich, colorama, python-slugify,"
+Write-Host "                  Pygments, markdown-it-py, requests"
+if ($TargetMode -eq "venv_fallback") {
+    Write-Host "    - venv BARU di $devtraceHome\venv"
+}
+Write-Host "  Shell hook      : devtrace-hook.ps1 -> $devtraceHome\ + edit PowerShell profile"
+Write-Host ""
+
+if (-not $Yes) {
     try {
-        pip --version | Out-Null
+        $answer = Read-Host "[?] Lanjutkan instalasi? [y/N]"
     } catch {
-        Write-Host "Installing pip..." -ForegroundColor Yellow
-        python -m ensurepip --upgrade
+        Write-Host "[!] Tidak ada input interaktif. Jalankan dengan -Yes untuk skip konfirmasi." -ForegroundColor Red
+        exit 1
     }
-} else {
-    Write-Host "[2/5] Preparing venv..." -ForegroundColor Yellow
-}
-
-# =========================
-# INSTALL DEVTRACE
-# =========================
-
-Write-Host "[3/5] Installing devtrace..." -ForegroundColor Yellow
-
-$devtraceHome = "$env:USERPROFILE\.devtrace"
-
-if ($Global) {
-    pip install --upgrade git+https://github.com/endogh/DevTrace-cli.git
-} else {
-    $venvDir = "$devtraceHome\venv"
-
-    Write-Host "Creating virtual environment at $venvDir..."
-    python -m venv "$venvDir"
-
-    Write-Host "Installing devtrace in venv..."
-    & "$venvDir\Scripts\pip.exe" install --upgrade git+https://github.com/endogh/DevTrace-cli.git
-
-    # Add venv Scripts to user PATH
-    $venvBin = "$venvDir\Scripts"
-    $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-
-    if ($currentPath -notlike "*devtrace*venv*") {
-        $newPath = "$venvBin;$currentPath"
-        [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
-        $env:Path = "$venvBin;$env:Path"
-        Write-Host "Added venv to user PATH" -ForegroundColor Green
+    if ($answer -notmatch "^(y|yes)$") {
+        Write-Host "[!] Instalasi dibatalkan."
+        exit 1
     }
 }
 
 # =========================
-# CREATE DIRECTORIES
+# [1/4] INSTALL DEVTRACE
 # =========================
 
-Write-Host "[4/5] Setting up directories..." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "[1/4] Installing devtrace..." -ForegroundColor Yellow
+
+$repoUrl = "git+https://github.com/endogh/DevTrace-cli.git"
+
+switch ($TargetMode) {
+    "global" {
+        pip install --upgrade $repoUrl
+    }
+    "venv_active" {
+        Write-Host "Installing into $TargetDir ..."
+        & $TargetPip install --upgrade $repoUrl
+    }
+    "venv_project" {
+        Write-Host "Installing into $TargetDir ..."
+        & $TargetPip install --upgrade $repoUrl
+    }
+    "venv_fallback" {
+        Write-Host "Creating virtual environment at $devtraceHome\venv..."
+        python -m venv "$devtraceHome\venv"
+
+        $TargetPip = Get-VenvPip "$devtraceHome\venv"
+        Write-Host "Installing devtrace in venv..."
+        & $TargetPip install --upgrade $repoUrl
+
+        # Add fallback venv Scripts to user PATH
+        $venvBin = "$devtraceHome\venv\Scripts"
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+
+        if ($currentPath -notlike "*devtrace*venv*") {
+            $newPath = "$venvBin;$currentPath"
+            [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+            $env:Path = "$venvBin;$env:Path"
+            Write-Host "Added venv to user PATH" -ForegroundColor Green
+        }
+    }
+}
+
+# =========================
+# [2/4] CREATE DIRECTORIES
+# =========================
+
+Write-Host ""
+Write-Host "[2/4] Setting up directories..." -ForegroundColor Yellow
 if (!(Test-Path $devtraceHome)) {
     New-Item -ItemType Directory -Path $devtraceHome | Out-Null
 }
 
 # =========================
-# DOWNLOAD SHELL HOOK
+# [3/4] DOWNLOAD SHELL HOOK
 # =========================
 
-Write-Host "[5/5] Installing PowerShell hook..." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "[3/4] Installing PowerShell hook..." -ForegroundColor Yellow
 $hookUrl = "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/devtrace-hook.ps1"
 $hookFile = "$devtraceHome\devtrace-hook.ps1"
 
@@ -100,10 +166,11 @@ try {
 }
 
 # =========================
-# CONFIGURE POWERSHELL PROFILE
+# [4/4] CONFIGURE POWERSHELL PROFILE
 # =========================
 
-Write-Host "Configuring PowerShell profile..." -ForegroundColor Yellow
+Write-Host ""
+Write-Host "[4/4] Configuring PowerShell profile..." -ForegroundColor Yellow
 $profilePath = $PROFILE
 if (!(Test-Path $profilePath)) {
     New-Item -ItemType File -Path $profilePath -Force | Out-Null
@@ -126,10 +193,11 @@ if ($profileContent -notmatch "devtrace-hook") {
 Write-Host ""
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host ""
-if ($Global) {
-    Write-Host "Installed globally via pip."
-} else {
-    Write-Host "Installed in venv at $devtraceHome\venv\"
+switch ($TargetMode) {
+    "global"        { Write-Host "Installed globally via pip." }
+    "venv_active"   { Write-Host "Installed into active venv: $TargetDir" }
+    "venv_project"  { Write-Host "Installed into project venv: $TargetDir" }
+    "venv_fallback" { Write-Host "Installed in venv at $devtraceHome\venv\" }
 }
 Write-Host ""
 Write-Host "Usage:"
@@ -139,3 +207,20 @@ Write-Host "  devtrace done"
 Write-Host ""
 Write-Host "Reload your profile:"
 Write-Host "  . `$PROFILE"
+Write-Host ""
+
+# =========================
+# VERIFY
+# =========================
+
+$devtraceCmd = Get-Command devtrace -ErrorAction SilentlyContinue
+if ($devtraceCmd) {
+    Write-Host "devtrace tersedia di: $($devtraceCmd.Source)"
+    if ($TargetMode -in @("venv_active", "venv_project")) {
+        $expected = "$TargetDir\Scripts\devtrace.exe"
+        if ($devtraceCmd.Source -ne $expected) {
+            Write-Host "[!] Warning: 'devtrace' di PATH = $($devtraceCmd.Source)" -ForegroundColor Yellow
+            Write-Host "    Bukan dari $TargetDir. Periksa urutan PATH." -ForegroundColor Yellow
+        }
+    }
+}

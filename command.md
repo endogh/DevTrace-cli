@@ -10,10 +10,18 @@
 
 ## Option 1: Automatic Install via Script (Recommended)
 
+> **Tips:** install.sh mengikuti venv — kalau ada venv aktif (`$VIRTUAL_ENV`) atau `.venv/` di proyek, devtrace ikut terpasang di sana. Sebelum install, script menampilkan ringkasan lalu meminta konfirmasi. Untuk non-interaktif, tambahkan `-y` (Windows: `-Yes`).
+
 ### Linux / macOS
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash
+```
+
+Non-interaktif (skip konfirmasi):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.sh | bash -s -- -y
 ```
 
 Or clone and run manually:
@@ -28,6 +36,12 @@ bash install.sh
 
 ```powershell
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1"
+```
+
+Non-interaktif:
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/endogh/DevTrace-cli/main/install.ps1" -OutFile "$env:TEMP\install.ps1"; & "$env:TEMP\install.ps1" -Yes
 ```
 
 Or clone and run manually:
@@ -118,7 +132,7 @@ devtrace --version
 Expected output:
 
 ```
-DevTrace CLI version: 0.16.0
+DevTrace CLI version: 0.16.1
 ```
 
 ---
