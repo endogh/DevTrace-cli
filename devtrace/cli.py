@@ -24,6 +24,7 @@ from devtrace.template import (
     parse_session,
     generate_blog,
     SECTIONS,
+    ALL_SECTIONS,
     SECTION_HEADERS,
 )
 
@@ -166,14 +167,15 @@ def after_command(result):
 
 @app.command()
 @click.argument("name")
-def start(name):
+@click.option("--type", "session_type", type=click.Choice(["debug", "feature"]), default="debug", help="Session type: debug or feature")
+def start(name, session_type):
     """Start  new  session"""
     session_file = get_session_file(name)
 
     if session_file.exists():
         click.echo(f"[!] Session '{name}' already exists")
     else:
-        session_file.write_text(generate_template(name), encoding="utf-8")
+        session_file.write_text(generate_template(name, session_type), encoding="utf-8")
 
     set_active_session(name)
     click.echo(f"[+] Started session: {name}")
@@ -185,7 +187,8 @@ def start(name):
 
 @app.command()
 @click.argument("name")
-def retro(name):
+@click.option("--type", "session_type", type=click.Choice(["debug", "feature"]), default="debug", help="Session type: debug or feature")
+def retro(name, session_type):
     """Start session retroactively (for when you forgot to start)"""
     session_file = get_session_file(name)
 
@@ -217,7 +220,7 @@ def retro(name):
     past_context = "\n".join(lines) if lines else "-"
 
     session_file.write_text(
-        generate_retro_template(name, past_context),
+        generate_retro_template(name, past_context, session_type),
         encoding="utf-8"
     )
 
@@ -351,7 +354,7 @@ def error(message, context):
 
 @app.command()
 @click.argument("message")
-@click.option("--section", "-s", type=click.Choice(SECTIONS), help="Log to specific section")
+@click.option("--section", "-s", type=click.Choice(ALL_SECTIONS), help="Log to specific section")
 def log(message, section):
     """Log activity into current session"""
     session = get_active_session()

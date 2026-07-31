@@ -17,6 +17,17 @@ SECTIONS = [
     "gotchas",
 ]
 
+FEATURE_SECTIONS = [
+    "context",
+    "design",
+    "implementation",
+    "result",
+    "insight",
+    "gotchas",
+]
+
+ALL_SECTIONS = SECTIONS + ["design", "implementation", "result"]
+
 SECTION_HEADERS = {
     "errors": "## Errors",
     "context": "## Context",
@@ -24,69 +35,55 @@ SECTION_HEADERS = {
     "investigation": "## Investigation",
     "root-cause": "## Root Cause",
     "solution": "## Solution",
+    "design": "## Design",
+    "implementation": "## Implementation",
+    "result": "## Result",
     "insight": "## Insight",
     "gotchas": "## Gotchas",
 }
 
 
-def generate_template(title):
+def generate_template(title, type="debug"):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
+    section_keys = FEATURE_SECTIONS if type == "feature" else SECTIONS
     sections = "\n\n".join(
-        f"{SECTION_HEADERS[s]}\n\n-" for s in SECTIONS
+        f"{SECTION_HEADERS[s]}\n\n-" for s in section_keys
     )
 
     return f"""# [WIP] {title}
 
 Date: {now}
 Status: In Progress
+Type: {type}
 
 {sections}
 """
 
 
-def generate_retro_template(title, past_context):
+def generate_retro_template(title, past_context, type="debug"):
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     context_block = past_context.strip() if past_context else "-"
+
+    section_keys = FEATURE_SECTIONS if type == "feature" else SECTIONS
+    blocks = []
+    for s in section_keys:
+        if s == "context":
+            blocks.append(f"{SECTION_HEADERS[s]}\n\n{context_block}")
+        else:
+            blocks.append(f"{SECTION_HEADERS[s]}\n\n-")
+
+    sections = "\n\n".join(blocks)
 
     return f"""# [WIP] {title}
 
 Date: {now}
 Status: In Progress
 Mode: Retroactive
+Type: {type}
 
-## Errors
-
--
-
-## Context
-
-{context_block}
-
-## Problem
-
--
-
-## Investigation
-
--
-
-## Root Cause
-
--
-
-## Solution
-
--
-
-## Insight
-
--
-
-## Gotchas
-
--
+{sections}
 """
 
 
@@ -136,6 +133,7 @@ def parse_session(path):
     title = None
     date = meta.get("date")
     status = meta.get("status")
+    session_type = meta.get("type")
 
     sections = {}
     section_order = []
@@ -158,6 +156,8 @@ def parse_session(path):
                 date = line.split(":", 1)[1].strip()
             elif re.match(r"^Status:\s*", line) and not status:
                 status = line.split(":", 1)[1].strip()
+            elif re.match(r"^Type:\s*", line) and not session_type:
+                session_type = line.split(":", 1)[1].strip()
             else:
                 t = re.match(r"^-\s+\[(\d{2}:\d{2}:\d{2})\]\s+(.+)$", line)
                 if t:
@@ -179,7 +179,7 @@ def parse_session(path):
 
     cleaned = {}
     for name in section_order:
-        if name in ("Errors", "Work Log"):
+        if name in ("Errors", "Work Log", "Conversation"):
             continue
         items = [ln for ln in sections[name] if ln.strip() not in ("", "-", "None", "...")]
         if items:
@@ -194,6 +194,7 @@ def parse_session(path):
         "title": title,
         "date": date,
         "status": status,
+        "type": session_type or "debug",
         "errors": errors,
         "sections": cleaned,
         "timeline": timeline,
@@ -233,6 +234,7 @@ def generate_blog(data, extra_tags=None):
     errors = data.get("errors", [])
     sections = data.get("sections", {})
     timeline = data.get("timeline", [])
+    session_type = data.get("type") or "debug"
 
     if not errors and not timeline and not sections:
         return None
@@ -242,7 +244,9 @@ def generate_blog(data, extra_tags=None):
     tags = set()
     if categories:
         tags.update(slugify_fn(cat) for cat, _ in categories.most_common(3))
-    else:
+    if session_type == "feature":
+        tags.add("feature")
+    if not tags:
         tags.add("feature")
     if extra_tags:
         for t in extra_tags.split(","):
@@ -256,9 +260,17 @@ def generate_blog(data, extra_tags=None):
 
     if errors:
         top = categories.most_common(1)[0][0]
-        overview = f"Session '{title}' pada {date} - {len(errors)} error tercatat, masalah utama: {top}."
+        if session_type == "feature":
+            overview = f"Session '{title}' pada {date} - pengembangan fitur, {len(errors)} error ditemukan (masalah utama: {top})."
+        else:
+            overview = f"Session '{title}' pada {date} - {len(errors)} error tercatat, masalah utama: {top}."
     elif timeline:
-        overview = f"Session '{title}' pada {date} - {len(timeline)} langkah aktivitas tercatat."
+        if session_type == "feature":
+            overview = f"Session '{title}' pada {date} - pengembangan fitur, {len(timeline)} langkah aktivitas tercatat."
+        else:
+            overview = f"Session '{title}' pada {date} - {len(timeline)} langkah aktivitas tercatat."
+    elif session_type == "feature":
+        overview = f"Session '{title}' pada {date} - sesi pengembangan fitur."
     else:
         overview = f"Session '{title}' pada {date} - sesi pengembangan."
 
@@ -283,7 +295,7 @@ def generate_blog(data, extra_tags=None):
             body.append(f"- [{t['time']}] {t['message']}")
         body.append("")
 
-    for key in SECTIONS:
+    for key in ALL_SECTIONS:
         if key == "errors":
             continue
         name = SECTION_HEADERS[key].replace("## ", "")
