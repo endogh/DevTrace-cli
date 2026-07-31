@@ -182,7 +182,7 @@ devtrace done
 | `devtrace list` | List all sessions |
 | `devtrace recent` | Show recent sessions |
 | `devtrace view <name>` | View session content |
-| `devtrace export [name]` | Export session as blog markdown (no AI) |
+| `devtrace export [name]` | Export session as blog markdown (no AI, `a`=all) |
 | `devtrace update` | Update package to latest version |
 | `devtrace upgrade` | Update package + refresh shell hooks |
 
@@ -250,6 +250,21 @@ Status: In Progress
 ```
 
 ---
+
+## 📢 Blog Export (No AI)
+
+`devtrace export` menghasilkan blog markdown siap-posting dari session — murni data terstruktur, tanpa AI:
+
+- **Session debugging** → `## Errors` (dari error yang ter-hook) + kategori error sebagai tag.
+- **Session fitur (tanpa error)** → tag `feature` + `## Work Log` dari timeline `devtrace log` + section terisi.
+- Session kosong (tanpa error/timeline/section) di-skip dengan warning.
+
+```bash
+devtrace export              # 1 session → langsung; banyak → pilih angka / a=all
+devtrace export fix-bug
+devtrace export --tags "postgres,perf"
+devtrace export --output blog
+```
 
 ## 🔄 Git Workflow
 

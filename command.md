@@ -132,7 +132,7 @@ devtrace --version
 Expected output:
 
 ```
-DevTrace CLI version: 0.17.0
+DevTrace CLI version: 0.17.1
 ```
 
 ---
@@ -165,16 +165,20 @@ devtrace done
 
 ## Export Blog (no AI)
 
-Generate blog-ready markdown from a session — no AI, purely structured from your logged data (frontmatter, overview, errors, filled sections, and stats).
+Generate blog-ready markdown from a session — no AI, purely structured from your logged data (frontmatter, overview, errors, work log, filled sections, and stats).
+
+- **Session debugging** → `## Errors` + kategori error sebagai tag.
+- **Session fitur (tanpa error)** → tag `feature` + `## Work Log` dari timeline `devtrace log` + section terisi.
+- **Session kosong** (tanpa error/timeline/section) → di-skip dengan warning.
 
 ```bash
-devtrace export              # 1 session → langsung; banyak session → pilih nomor
+devtrace export              # 1 session → langsung; banyak session → pilih nomor (a=all)
 devtrace export fix-bug      # session tertentu
 devtrace export --tags "postgres,perf"
 devtrace export --output blog
 ```
 
-Output default di `blog/<slug>.md`. Tags otomatis diambil dari kategori error (`KeyError`, `HTTP`, dll) + bisa ditambah manual via `--tags`. Cek hasilnya lalu upload:
+Output default di `blog/<slug>.md`. Tags otomatis diambil dari kategori error (`KeyError`, `HTTP`, dll) atau `feature` saat tanpa error, + bisa ditambah manual via `--tags`. Cek hasilnya lalu upload:
 
 ```bash
 devtrace upload blog/fix-bug.md

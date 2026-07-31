@@ -140,6 +140,7 @@ def parse_session(path):
     sections = {}
     section_order = []
     current = None
+    timeline = []
 
     for raw in text.split("\n"):
         line = raw.rstrip()
@@ -157,6 +158,10 @@ def parse_session(path):
                 date = line.split(":", 1)[1].strip()
             elif re.match(r"^Status:\s*", line) and not status:
                 status = line.split(":", 1)[1].strip()
+            else:
+                t = re.match(r"^-\s+\[(\d{2}:\d{2}:\d{2})\]\s+(.+)$", line)
+                if t:
+                    timeline.append({"time": t.group(1), "message": t.group(2)})
             continue
         sections[current].append(line)
 
@@ -174,11 +179,16 @@ def parse_session(path):
 
     cleaned = {}
     for name in section_order:
-        if name == "Errors":
+        if name in ("Errors", "Work Log"):
             continue
         items = [ln for ln in sections[name] if ln.strip() not in ("", "-", "None", "...")]
         if items:
             cleaned[name] = items
+
+    for line in sections.get("Work Log", []):
+        m = re.match(r"^-\s+\[(\d{2}:\d{2}:\d{2})\]\s+(.+)$", line)
+        if m:
+            timeline.append({"time": m.group(1), "message": m.group(2)})
 
     return {
         "title": title,
@@ -186,6 +196,7 @@ def parse_session(path):
         "status": status,
         "errors": errors,
         "sections": cleaned,
+        "timeline": timeline,
     }
 
 
@@ -212,42 +223,64 @@ def categorize_error(message):
 
 
 def generate_blog(data, extra_tags=None):
-    """Generate blog-ready markdown from parsed session data (no AI)."""
+    """Generate blog-ready markdown from parsed session data (no AI).
+
+    Returns None when the session has no content at all (no errors, no
+    timeline, no filled sections) so the caller can skip it.
+    """
     title = data.get("title") or "Untitled session"
     date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
     errors = data.get("errors", [])
     sections = data.get("sections", {})
+    timeline = data.get("timeline", [])
+
+    if not errors and not timeline and not sections:
+        return None
 
     categories = Counter(categorize_error(e["message"]) for e in errors if e.get("message"))
 
-    tags = {slugify_fn(cat) for cat, _ in categories.most_common(3)}
+    tags = set()
+    if categories:
+        tags.update(slugify_fn(cat) for cat, _ in categories.most_common(3))
+    else:
+        tags.add("feature")
     if extra_tags:
         for t in extra_tags.split(","):
             t = t.strip().lower()
             if t:
                 tags.add(t)
-    if not tags:
-        tags.add("debugging")
     tags_str = ", ".join(sorted(tags))
+
+    errors_ordered = sorted(errors, key=lambda e: e.get("time") or "")
+    timeline_ordered = sorted(timeline, key=lambda t: t.get("time") or "")
 
     if errors:
         top = categories.most_common(1)[0][0]
         overview = f"Session '{title}' pada {date} - {len(errors)} error tercatat, masalah utama: {top}."
+    elif timeline:
+        overview = f"Session '{title}' pada {date} - {len(timeline)} langkah aktivitas tercatat."
     else:
-        overview = f"Session '{title}' pada {date} - sesi pengembangan tanpa error tercatat."
+        overview = f"Session '{title}' pada {date} - sesi pengembangan."
 
     body = [f"# {title}", "", overview, ""]
 
-    if errors:
+    if errors_ordered:
         body.append("## Errors")
         body.append("")
-        for e in errors:
+        for e in errors_ordered:
             item = f"- [{e['time']}] `{e['message']}`"
             if e.get("location"):
                 item += f"\n  - Location: {e['location']}"
             for extra in e.get("extra", []):
                 item += f"\n  - {extra}"
             body.append(item)
+        body.append("")
+
+    if timeline_ordered:
+        body.append("## Work Log")
+        body.append("")
+        for t in timeline_ordered:
+            body.append(f"- [{t['time']}] {t['message']}")
         body.append("")
 
     for key in SECTIONS:
@@ -263,10 +296,12 @@ def generate_blog(data, extra_tags=None):
     body.append("## Stats")
     body.append("")
     body.append(f"- Total errors: {len(errors)}")
+    if timeline:
+        body.append(f"- Langkah aktivitas: {len(timeline)}")
     if categories:
         breakdown = ", ".join(f"{cat}: {n}" for cat, n in categories.most_common())
         body.append(f"- Kategori: {breakdown}")
-    times = [e["time"] for e in errors if e.get("time")]
+    times = [e["time"] for e in errors_ordered if e.get("time")] or [t["time"] for t in timeline_ordered if t.get("time")]
     if len(times) >= 2:
         body.append(f"- Rentang waktu: {times[0]} -> {times[-1]}")
     body.append("")

@@ -80,25 +80,32 @@ def find_section_position(content: str, section: str):
     return None
 
 
+def insert_after_header(content: str, header: str, entry: str):
+    """Insert entry right after a '## header' line, replacing a lone '-' placeholder."""
+    lines = content.split("\n")
+    for i, line in enumerate(lines):
+        if line.strip() == header:
+            insert_pos = i + 1
+            while insert_pos < len(lines) and lines[insert_pos].strip() == "":
+                insert_pos += 1
+
+            if insert_pos < len(lines) and lines[insert_pos].strip() == "-":
+                lines[insert_pos] = entry
+            else:
+                lines.insert(insert_pos, entry)
+            return "\n".join(lines)
+    return None
+
+
 def append_to_section(filepath: Path, section: str, message: str):
     content = filepath.read_text(encoding="utf-8")
-    lines = content.split("\n")
     now = datetime.now().strftime("%H:%M:%S")
 
-    section_line = find_section_position(content, section)
-    if section_line is None:
+    new_content = insert_after_header(content, SECTION_HEADERS[section], f"- [{now}] {message}")
+    if new_content is None:
         return False
 
-    insert_pos = section_line + 1
-    while insert_pos < len(lines) and lines[insert_pos].strip() == "":
-        insert_pos += 1
-
-    if insert_pos < len(lines) and lines[insert_pos].strip() == "-":
-        lines[insert_pos] = f"- [{now}] {message}"
-    else:
-        lines.insert(insert_pos, f"- [{now}] {message}")
-
-    filepath.write_text("\n".join(lines), encoding="utf-8")
+    filepath.write_text(new_content, encoding="utf-8")
     return True
 
 
@@ -370,8 +377,14 @@ def log(message, section):
             click.echo(f"[!] Section '{section}' not found")
     else:
         now = datetime.now().strftime("%H:%M:%S")
-        with open(session_file, "a", encoding="utf-8") as f:
-            f.write(f"- [{now}] {message}\n")
+        entry = f"- [{now}] {message}"
+        content = session_file.read_text(encoding="utf-8")
+        new_content = insert_after_header(content, "## Work Log", entry)
+        if new_content is None:
+            with open(session_file, "a", encoding="utf-8") as f:
+                f.write(f"\n## Work Log\n\n{entry}\n")
+        else:
+            session_file.write_text(new_content, encoding="utf-8")
         click.echo(f"[+] Logged: {message}")
 
 
@@ -640,6 +653,9 @@ def export(name, extra_tags, output_dir):
     for f in targets:
         data = parse_session(f)
         blog = generate_blog(data, extra_tags)
+        if blog is None:
+            console.print(f"[bold yellow][!][/] Session '{f.stem}' kosong (tanpa error, timeline, atau section terisi) - dilewati")
+            continue
         slug = make_slug(data.get("title") or f.stem)
         out = out_dir / f"{slug}.md"
         out.write_text(blog, encoding="utf-8")
