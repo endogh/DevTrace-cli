@@ -124,7 +124,7 @@ DevTrace uses `MAJOR.MINOR.PATCH`:
 | `MINOR` | Jumlah fitur/command |
 | `PATCH` | Minor update (reset ke 0 setiap fitur baru) |
 
-Current: `0.16.0` (beta, 16 commands).
+Current: `0.17.0` (beta, 17 commands).
 
 ---
 
@@ -182,7 +182,7 @@ devtrace done
 | `devtrace list` | List all sessions |
 | `devtrace recent` | Show recent sessions |
 | `devtrace view <name>` | View session content |
-| `devtrace export <name>` | Export as blog markdown |
+| `devtrace export [name]` | Export session as blog markdown (no AI) |
 | `devtrace update` | Update package to latest version |
 | `devtrace upgrade` | Update package + refresh shell hooks |
 

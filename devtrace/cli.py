@@ -17,7 +17,15 @@ from rich.panel import Panel
 from rich.text import Text
 from rich.markdown import Markdown as RichMarkdown
 
-from devtrace.template import generate_template, generate_retro_template, export_blog, SECTIONS, SECTION_HEADERS
+from devtrace.template import (
+    generate_template,
+    generate_retro_template,
+    export_blog,
+    parse_session,
+    generate_blog,
+    SECTIONS,
+    SECTION_HEADERS,
+)
 
 colorama.just_fix_windows_console()
 console = Console()
@@ -490,7 +498,7 @@ def list_blog_files():
     return files
 
 
-def pick_blog_files():
+def pick_blog_files(prompt="Select files to upload (e.g. 1,2,4,6, a=all)"):
     files = list_blog_files()
     if not files:
         click.echo("[!] No files found in .devtrace/")
@@ -506,10 +514,13 @@ def pick_blog_files():
         table.add_row(str(i), f.name, mtime)
     console.print(table)
 
-    inp = click.prompt("Select files to upload (e.g. 1,2,4,6)", default="").strip()
+    inp = click.prompt(prompt, default="").strip()
     if not inp:
         click.echo("[!] No selection")
         return None
+
+    if inp.lower() in ("a", "all"):
+        return files
 
     selected = []
     for part in inp.split(","):
@@ -592,6 +603,47 @@ def upload(files, session_name, all_sessions):
         console.print(f"[dim]Status: {resp.status_code}[/dim]")
     except Exception:
         pass
+
+
+# =========================
+# EXPORT BLOG
+# =========================
+
+@app.command()
+@click.argument("name", required=False)
+@click.option("--tags", "extra_tags", help="Extra tags (comma separated)")
+@click.option("--output", "-o", "output_dir", default="blog", show_default=True, help="Output directory")
+def export(name, extra_tags, output_dir):
+    """Generate blog-ready markdown from session(s)"""
+    files = list_blog_files()
+    if not files:
+        click.echo("[!] No files found in .devtrace/")
+        return
+
+    if name:
+        sf = get_session_file(name)
+        if not sf.exists():
+            click.echo(f"[!] Session '{name}' not found")
+            return
+        targets = [sf]
+    elif len(files) == 1:
+        targets = files
+    else:
+        picked = pick_blog_files("Select files to export (e.g. 1,2,4,6, a=all)")
+        if picked is None:
+            return
+        targets = picked
+
+    out_dir = Path(output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    for f in targets:
+        data = parse_session(f)
+        blog = generate_blog(data, extra_tags)
+        slug = make_slug(data.get("title") or f.stem)
+        out = out_dir / f"{slug}.md"
+        out.write_text(blog, encoding="utf-8")
+        console.print(f"[bold green][+][/] Exported: {out}")
 
 
 # =========================

@@ -132,7 +132,7 @@ devtrace --version
 Expected output:
 
 ```
-DevTrace CLI version: 0.16.1
+DevTrace CLI version: 0.17.0
 ```
 
 ---
@@ -159,4 +159,23 @@ devtrace upgrade
 devtrace start fix-bug
 devtrace log "Implemented login validation"
 devtrace done
+```
+
+---
+
+## Export Blog (no AI)
+
+Generate blog-ready markdown from a session — no AI, purely structured from your logged data (frontmatter, overview, errors, filled sections, and stats).
+
+```bash
+devtrace export              # 1 session → langsung; banyak session → pilih nomor
+devtrace export fix-bug      # session tertentu
+devtrace export --tags "postgres,perf"
+devtrace export --output blog
+```
+
+Output default di `blog/<slug>.md`. Tags otomatis diambil dari kategori error (`KeyError`, `HTTP`, dll) + bisa ditambah manual via `--tags`. Cek hasilnya lalu upload:
+
+```bash
+devtrace upload blog/fix-bug.md
 ```
