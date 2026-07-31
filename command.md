@@ -132,7 +132,7 @@ devtrace --version
 Expected output:
 
 ```
-DevTrace CLI version: 0.17.1
+DevTrace CLI version: 0.18.0
 ```
 
 ---
@@ -161,6 +161,26 @@ devtrace log "Implemented login validation"
 devtrace done
 ```
 
+## Session Types & Debug Routing
+
+```bash
+# Feature session (template: Context, Design, Implementation, Result, Insight, Gotchas)
+devtrace start 'add-fitur-xxx' --type feature
+
+# Debug session (default template: Errors, Context, Problem, Investigation, Root Cause, Solution, Insight, Gotchas)
+devtrace start fix-bug
+
+# Error di feature session → otomatis diarahkan ke session debug terpisah
+devtrace error "KeyError: foo"        # buat/switch ke debug-add-fitur-xxx + catat error
+devtrace debug "TypeError: bar"       # eksplisit; reuse debug-add-fitur-xxx kalau sudah ada
+devtrace switch 'add-fitur-xxx'       # kembali ke feature session
+```
+
+- Session feature tetap murni (`Type: feature`) — error tidak pernah masuk ke sana.
+- Session debug dibuat dengan `Type: debug`, context berisi `Debug session untuk fitur: <nama>`.
+- Feature session mendapat referensi di `## Work Log` (mis. `Debug session dibuat: debug-<nama> (pesan error...)`).
+- `devtrace debug` saat aktif sudah `debug-*` hanya mencatat error di session tersebut.
+
 ---
 
 ## Export Blog (no AI)
@@ -168,7 +188,8 @@ devtrace done
 Generate blog-ready markdown from a session — no AI, purely structured from your logged data (frontmatter, overview, errors, work log, filled sections, and stats).
 
 - **Session debugging** → `## Errors` + kategori error sebagai tag.
-- **Session fitur (tanpa error)** → tag `feature` + `## Work Log` dari timeline `devtrace log` + section terisi.
+- **Session fitur** → tag `feature` + `## Work Log` dari timeline `devtrace log` + section terisi.
+- **Feature + error** (hybrid) → tag `feature` **dan** kategori error + overview menyebut keduanya.
 - **Session kosong** (tanpa error/timeline/section) → di-skip dengan warning.
 
 ```bash

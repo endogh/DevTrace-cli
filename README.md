@@ -124,7 +124,7 @@ DevTrace uses `MAJOR.MINOR.PATCH`:
 | `MINOR` | Jumlah fitur/command |
 | `PATCH` | Minor update (reset ke 0 setiap fitur baru) |
 
-Current: `0.17.0` (beta, 17 commands).
+Current: `0.18.0` (beta, 18 commands).
 
 ---
 
@@ -172,13 +172,14 @@ devtrace done
 
 | Command | Description |
 |---------|-------------|
-| `devtrace start <name>` | Start new session |
-| `devtrace retro <name>` | Start retroactive session |
+| `devtrace start <name> [--type debug\|feature]` | Start new session |
+| `devtrace retro <name> [--type debug\|feature]` | Start retroactive session |
 | `devtrace done` | Stop + auto export to blog |
 | `devtrace stop` | Stop session only |
 | `devtrace switch <name>` | Switch active session |
 | `devtrace log -s <section> <msg>` | Log to section |
 | `devtrace error [msg]` | Log error (clipboard/manual) |
+| `devtrace debug <msg>` | Log error into dedicated `debug-<active>` session |
 | `devtrace list` | List all sessions |
 | `devtrace recent` | Show recent sessions |
 | `devtrace view <name>` | View session content |
@@ -205,13 +206,14 @@ devtrace done
 
 ## 📝 Session Format
 
-Each session is a markdown file with structured sections:
+Each session is a markdown file with structured sections. The `Type:` line marks the session type (default `debug`):
 
 ```markdown
 # [WIP] fix-login-bug
 
 Date: 2026-07-22 14:30
 Status: In Progress
+Type: debug
 
 ## Errors
 
@@ -249,14 +251,41 @@ Status: In Progress
 - NextAuth.js doesn't validate token structure by default
 ```
 
----
+### Session Types
+
+| Type | Template sections | Use case |
+|------|-------------------|----------|
+| `debug` (default) | `Errors, Context, Problem, Investigation, Root Cause, Solution, Insight, Gotchas` | Memperbaiki bug / debugging |
+| `feature` | `Context, Design, Implementation, Result, Insight, Gotchas` | Menambah fitur / development normal |
+
+```bash
+devtrace start 'add-fitur-xxx' --type feature
+devtrace retro 'landing-page' --type feature
+```
+
+### Feature session vs Debug session
+
+Ketika bekerja di **feature session** dan menemukan error, error **tidak** dicatat di session feature — otomatis diarahkan ke session debug terpisah (`debug-<nama-fitur>`):
+
+```bash
+devtrace start 'add-fitur-xxx' --type feature   # session feature berjalan
+# ... ketemu error ...
+devtrace error "KeyError: foo"                   # → buat/switch ke debug-add-fitur-xxx
+devtrace debug "ConnectionError: timeout"        # sama, eksplisit; reuse kalau sudah ada
+devtrace switch 'add-fitur-xxx'                  # kembali ke feature session
+```
+
+- Session debug dibuat dari template `debug`, context berisi `Debug session untuk fitur: <nama>`.
+- Session feature mendapat referensi di `## Work Log` (mis. `Debug session dibuat: debug-add-fitur-xxx`).
+- `devtrace debug` di session yang sudah `debug-*` hanya mencatat error di session tersebut.
 
 ## 📢 Blog Export (No AI)
 
 `devtrace export` menghasilkan blog markdown siap-posting dari session — murni data terstruktur, tanpa AI:
 
 - **Session debugging** → `## Errors` (dari error yang ter-hook) + kategori error sebagai tag.
-- **Session fitur (tanpa error)** → tag `feature` + `## Work Log` dari timeline `devtrace log` + section terisi.
+- **Session fitur** → tag `feature` + `## Work Log` + section `Design/Implementation/Result` terisi.
+- **Feature + error** (hybrid) → tag `feature` **dan** kategori error + overview menyebut keduanya.
 - Session kosong (tanpa error/timeline/section) di-skip dengan warning.
 
 ```bash
