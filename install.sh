@@ -220,11 +220,13 @@ echo ""
 confirm() {
     [ "$ASSUME_YES" = true ] && return 0
     local answer=""
+    printf "[?] Lanjutkan instalasi? [y/N] "
     if [ -e /dev/tty ]; then
-        read -r -p "[?] Lanjutkan instalasi? [y/N] " answer 2>/dev/null < /dev/tty || answer=""
+        read -r answer 2>/dev/null < /dev/tty || answer=""
     elif [ -t 0 ]; then
-        read -r -p "[?] Lanjutkan instalasi? [y/N] " answer 2>/dev/null || answer=""
+        read -r answer 2>/dev/null || answer=""
     else
+        echo ""
         echo "[!] Tidak ada TTY. Jalankan dengan -y untuk skip konfirmasi." >&2
         return 1
     fi
