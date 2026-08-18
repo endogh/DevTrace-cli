@@ -28,8 +28,11 @@ def load_env():
 
 def get_config():
     env = load_env()
-    token = os.environ.get("API_UPLOAD_TOKEN") or env.get("API_UPLOAD_TOKEN") or env.get("API_TOKEN") or env.get("TOKEN")
-    api_url = os.environ.get("API_UPLOAD_URL") or os.environ.get("API_UPLOAD_URL_URL") or env.get("API") or env.get("API_URL")
+    for key, value in env.items():
+        os.environ.setdefault(key, value)
+
+    token = os.environ.get("API_UPLOAD_TOKEN")
+    api_url = os.environ.get("API_UPLOAD_URL")
     return token, api_url
 
 

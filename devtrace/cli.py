@@ -641,15 +641,15 @@ def pick_blog_files(prompt="Select files to upload (e.g. 1,2,4,6, a=all)"):
 @click.option("--session", "-s", "session_name", help="Upload a specific session by name")
 @click.option("--all", "-a", "all_sessions", is_flag=True, help="Upload all sessions")
 def upload(files, session_name, all_sessions):
-    """Upload File(s) to API endpoint (configured in .env as TOKEN and API)"""
+    """Upload File(s) to API endpoint (configured in .env as API_UPLOAD_TOKEN and API_UPLOAD_URL)"""
     from devtrace.uploader import get_config, upload_files
 
     token, api_url = get_config()
     if not token:
-        click.echo("[!] TOKEN not found in .env")
+        click.echo("[!] API_UPLOAD_TOKEN not found in .env")
         return
     if not api_url:
-        click.echo("[!] API URL not found in .env (set API or API_URL)")
+        click.echo("[!] API_UPLOAD_URL not found in .env (set API_UPLOAD_URL)")
         return
 
     targets = []
