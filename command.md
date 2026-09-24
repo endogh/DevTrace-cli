@@ -132,7 +132,7 @@ devtrace --version
 Expected output:
 
 ```
-DevTrace CLI version: 0.18.1
+DevTrace CLI version: 0.19.0
 ```
 
 ---
@@ -159,6 +159,20 @@ devtrace upgrade
 devtrace start fix-bug
 devtrace log "Implemented login validation"
 devtrace done
+```
+
+## Konfigurasi Upload (sekali per device)
+
+Saat install (atau `devtrace setup`), DevTrace menanyakan apakah session juga di-upload ke blog online. Kalau ya, masukkan `API_UPLOAD_URL` + `API_UPLOAD_TOKEN` — disimpan **sekali** dan tidak ditanya lagi, jadi langsung bisa dipakai di device lain.
+
+- Config disimpan di `~/.devtrace/config.env` dengan permission `600` (gaya SSH key).
+- Urutan pembacaan: **env var** → **`~/.devtrace/config.env`** → **`.env` di proyek** (backward-compat).
+- `devtrace upload` otomatis menjalankan wizard `setup` jika belum dikonfigurasi.
+- Reset/ubah: edit `~/.devtrace/config.env` atau jalankan ulang `devtrace setup` setelah file dihapus.
+
+```bash
+devtrace setup      # wizard konfigurasi upload ke blog
+devtrace upload     # upload session (otomatis setup jika perlu)
 ```
 
 ## Session Types & Debug Routing
