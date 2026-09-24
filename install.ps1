@@ -224,3 +224,25 @@ if ($devtraceCmd) {
         }
     }
 }
+
+# =========================
+# SETUP KONFIGURASI UPLOAD (opsional, sekali)
+# =========================
+
+$setupCmd = switch ($TargetMode) {
+    "global"        { "devtrace" }
+    "venv_fallback" { "$devtraceHome\venv\Scripts\devtrace.exe" }
+    default         { "$TargetDir\Scripts\devtrace.exe" }
+}
+
+Write-Host ""
+if (-not [Console]::IsInputRedirected) {
+    Write-Host "[?] Konfigurasi upload ke blog sekarang? (sekali saja, lalu tidak ditanya lagi)" -ForegroundColor Cyan
+    try {
+        & $setupCmd setup
+    } catch {
+        Write-Host "[!] Gagal menjalankan devtrace setup. Jalankan manual: devtrace setup" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Tip: jalankan 'devtrace setup' sekali pada setiap device untuk mengatur upload ke blog." -ForegroundColor Green
+}

@@ -571,6 +571,59 @@ def view(name):
 
 
 # =========================
+# SETUP (BLOG UPLOAD CONFIG)
+# =========================
+
+def configure_upload():
+    """First-run wizard: store upload config in ~/.devtrace/config.env (0600)."""
+    from devtrace.uploader import has_config, save_config
+
+    if has_config():
+        click.echo("[+] Blog upload sudah ter-konfigurasi")
+        click.echo("    File: ~/.devtrace/config.env")
+        return True
+
+    console.print(Panel(
+        "DevTrace bisa menyimpan session di lokal saja, atau juga meng-uploadnya "
+        "ke blog online (mis. log.codenest.id/api/uploads/).",
+        title="DevTrace Setup", border_style="cyan"))
+    choice = click.prompt(
+        "Pilih: [l]okal saja / [b]log upload", default="l", show_default=False
+    )
+    if choice.strip().lower() not in ("b", "blog"):
+        click.echo("[+] OK, session disimpan di lokal.")
+        return True
+
+    click.echo("[*] Konfigurasi upload ke blog (disimpan sekali, tidak ditanya lagi):")
+    api_url = click.prompt("API_UPLOAD_URL", default="https://log.codenest.id/api/uploads/", show_default=True)
+    token = click.prompt("API_UPLOAD_TOKEN", hide_input=True)
+
+    save_config(token, api_url)
+    console.print(f"[bold green][+][/] Konfigurasi disimpan: ~/.devtrace/config.env (permission 600)")
+    return True
+
+
+def ensure_config():
+    from devtrace.uploader import get_config
+
+    token, api_url = get_config()
+    if token and api_url:
+        return True
+    configure_upload()
+    token, api_url = get_config()
+    if not token or not api_url:
+        click.echo("[!] DevTrace belum ter-konfigurasi untuk upload. Jalankan: devtrace setup")
+        return False
+    return True
+
+
+@app.command()
+def setup():
+    """Set up blog upload config once (stored in ~/.devtrace/config.env)"""
+    configure_upload()
+
+
+# =========================
 # UPLOAD SESSION
 # =========================
 
@@ -641,15 +694,18 @@ def pick_blog_files(prompt="Select files to upload (e.g. 1,2,4,6, a=all)"):
 @click.option("--session", "-s", "session_name", help="Upload a specific session by name")
 @click.option("--all", "-a", "all_sessions", is_flag=True, help="Upload all sessions")
 def upload(files, session_name, all_sessions):
-    """Upload File(s) to API endpoint (configured in .env as API_UPLOAD_TOKEN and API_UPLOAD_URL)"""
+    """Upload File(s) to API endpoint (configured via 'devtrace setup' or ~/.devtrace/config.env)"""
     from devtrace.uploader import get_config, upload_files
+
+    if not ensure_config():
+        return
 
     token, api_url = get_config()
     if not token:
-        click.echo("[!] API_UPLOAD_TOKEN not found in .env")
+        click.echo("[!] API_UPLOAD_TOKEN not found")
         return
     if not api_url:
-        click.echo("[!] API_UPLOAD_URL not found in .env (set API_UPLOAD_URL)")
+        click.echo("[!] API_UPLOAD_URL not found")
         return
 
     targets = []

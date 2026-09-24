@@ -124,7 +124,7 @@ DevTrace uses `MAJOR.MINOR.PATCH`:
 | `MINOR` | Jumlah fitur/command |
 | `PATCH` | Minor update (reset ke 0 setiap fitur baru) |
 
-Current: `0.18.1` (beta, 18 commands).
+Current: `0.19.0` (beta, 19 commands).
 
 ---
 
@@ -184,6 +184,8 @@ devtrace done
 | `devtrace recent` | Show recent sessions |
 | `devtrace view <name>` | View session content |
 | `devtrace export [name]` | Export session as blog markdown (no AI, `a`=all) |
+| `devtrace upload` | Upload session(s) to blog/API endpoint |
+| `devtrace setup` | Wizard sekali: atur config upload ke blog (disimpan di `~/.devtrace/config.env`) |
 | `devtrace update` | Update package to latest version |
 | `devtrace upgrade` | Update package + refresh shell hooks |
 
@@ -293,6 +295,22 @@ devtrace export              # 1 session → langsung; banyak → pilih angka / 
 devtrace export fix-bug
 devtrace export --tags "postgres,perf"
 devtrace export --output blog
+```
+
+## ⚙️ Konfigurasi Upload (sekali per device)
+
+Saat install (atau `devtrace setup`), DevTrace menanyakan apakah session juga di-upload
+ke blog online. Kalau ya, masukkan `API_UPLOAD_URL` + `API_UPLOAD_TOKEN` — disimpan
+**sekali** dan tidak ditanya lagi.
+
+- Config disimpan di `~/.devtrace/config.env` dengan permission `600` (gaya SSH key).
+- Urutan pembacaan: **env var** → **`~/.devtrace/config.env`** → **`.env` di proyek** (backward-compat).
+- `devtrace upload` otomatis menjalankan wizard `setup` jika belum dikonfigurasi.
+- Reset/ubah: edit `~/.devtrace/config.env` atau jalankan ulang `devtrace setup` setelah file dihapus.
+
+```bash
+devtrace setup      # wizard konfigurasi upload ke blog
+devtrace upload     # upload session (otomatis setup jika perlu)
 ```
 
 ## 🔄 Git Workflow

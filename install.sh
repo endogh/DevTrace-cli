@@ -500,3 +500,22 @@ if [ -n "$DEVTRACE_BIN" ]; then
             ;;
     esac
 fi
+
+# =========================
+# SETUP KONFIGURASI UPLOAD (opsional, sekali)
+# =========================
+
+SETUP_CMD="devtrace"
+if [ -n "$TARGET_PIP" ]; then
+    SETUP_CMD="${TARGET_PIP%/pip}/devtrace"
+fi
+
+echo ""
+if [ -t 0 ]; then
+    echo "[?] Konfigurasi upload ke blog sekarang? (satukan sekali, lalu tidak ditanya lagi)"
+    "$SETUP_CMD" setup 2>/dev/null || {
+        echo "[!] Gagal menjalankan devtrace setup. Jalankan manual: devtrace setup"
+    }
+else
+    echo "Tip: jalankan 'devtrace setup' sekali pada setiap device untuk mengatur upload ke blog."
+fi

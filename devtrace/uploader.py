@@ -1,4 +1,5 @@
 import os
+import stat
 from pathlib import Path
 
 import requests
@@ -7,9 +8,10 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 
 console = Console()
 
+CONFIG_FILE = Path.home() / ".devtrace" / "config.env"
 
-def load_env():
-    env_path = Path.cwd() / ".env"
+
+def load_env_file(env_path: Path):
     if not env_path.exists():
         return {}
     env = {}
@@ -26,9 +28,35 @@ def load_env():
     return env
 
 
+def has_config():
+    return bool(
+        os.environ.get("API_UPLOAD_TOKEN")
+        and os.environ.get("API_UPLOAD_URL")
+        or CONFIG_FILE.exists()
+        and load_env_file(CONFIG_FILE).get("API_UPLOAD_TOKEN")
+        and load_env_file(CONFIG_FILE).get("API_UPLOAD_URL")
+    )
+
+
+def save_config(token: str, api_url: str):
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    content = f"# TOKEN FOR UPLOAD\nAPI_UPLOAD_TOKEN={token}\nAPI_UPLOAD_URL={api_url}\n"
+    CONFIG_FILE.write_text(content, encoding="utf-8")
+
+    current = stat.S_IMODE(CONFIG_FILE.stat().st_mode)
+    if current & 0o077:
+        CONFIG_FILE.chmod(0o600)
+
+
 def get_config():
-    env = load_env()
-    for key, value in env.items():
+    # Resolution order: env vars > ~/.devtrace/config.env > project .env
+    global_env = load_env_file(CONFIG_FILE)
+    local_env = load_env_file(Path.cwd() / ".env")
+
+    merged = {}
+    merged.update(global_env)
+    merged.update(local_env)
+    for key, value in merged.items():
         os.environ.setdefault(key, value)
 
     token = os.environ.get("API_UPLOAD_TOKEN")
